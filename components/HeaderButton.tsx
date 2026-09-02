@@ -1,22 +1,21 @@
 import { forwardRef } from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { useColorScheme } from '@/lib/useColorScheme';
+
 export const HeaderButton = forwardRef<typeof Pressable, { onPress?: () => void }>(
-  ({ onPress }, ref) => {
+  ({ onPress }, _ref) => {
+    const { colors } = useColorScheme();
+
     return (
-      <Pressable onPress={onPress}>
+      <Pressable onPress={onPress} hitSlop={8}>
         {({ pressed }) => (
-          <FontAwesome
-            name="info-circle"
-            size={25}
-            color="gray"
-            style={[
-              styles.headerRight,
-              {
-                opacity: pressed ? 0.5 : 1,
-              },
-            ]}
+          <MaterialIcons
+            name="info-outline"
+            size={24}
+            color={colors.foreground}
+            style={[styles.headerRight, { opacity: pressed ? 0.5 : 1 }]}
           />
         )}
       </Pressable>
@@ -26,7 +25,7 @@ export const HeaderButton = forwardRef<typeof Pressable, { onPress?: () => void 
 
 HeaderButton.displayName = 'HeaderButton';
 
-export const styles = StyleSheet.create({
+const styles = StyleSheet.create({
   headerRight: {
     marginRight: 15,
   },

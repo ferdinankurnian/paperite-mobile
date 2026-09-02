@@ -1,26 +1,24 @@
 import { Tabs } from 'expo-router';
 
-import { TabBarIcon } from '@/components/TabBarIcon';
+import { useSpace } from '@/lib/SpaceContext';
+import { NotesHeader } from '@/components/NotesHeader';
 
 export default function TabLayout() {
+  const { activeSpaceName } = useSpace();
+
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: 'black',
-      }}>
+        header: () => <NotesHeader />,
+        headerShown: true,
+        headerTransparent: true,
+        headerShadowVisible: false,
+      }}
+      tabBar={() => null}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="two"
-        options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: activeSpaceName,
         }}
       />
     </Tabs>
