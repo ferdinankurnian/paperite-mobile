@@ -12,7 +12,7 @@ import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 const HEADER_H = 56;
-const HEADER_GRADIENT_EXTRA_H = 32;
+const HEADER_GRADIENT_EXTRA_H = 16;
 
 type NotesHeaderProps = {
   showCenter?: boolean;
