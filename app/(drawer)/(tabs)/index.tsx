@@ -35,12 +35,10 @@ function NoteRow({ note }: { note: Note }) {
 
   return (
     <View
-      className="mx-4 mb-2 rounded-xl"
+      className="mx-2 mb-2 rounded-xl"
       style={{
-        backgroundColor: noteSurface,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: colors.border,
         overflow: 'hidden',
       }}>
       <Pressable
@@ -81,7 +79,7 @@ export default function NotesListScreen() {
     search.trim().length === 0
       ? allNotes
       : allNotes.filter((n) => {
-          const q = search.toLowerCase();
+          const q = search.trim().toLowerCase();
           return n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q);
         });
 

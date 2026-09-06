@@ -1,15 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useNavigation } from 'expo-router';
 import { useState } from 'react';
-import { LayoutChangeEvent, Pressable, Text, View } from 'react-native';
+import { LayoutChangeEvent, Text, View } from 'react-native';
 import { DrawerActions } from 'expo-router/react-navigation';
 import { Menu } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { ToolbarItem, ToolbarItemGroup } from '@/components/Toolbar';
 import { getSpaceById } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { withOpacity } from '@/theme/with-opacity';
 
 const HEADER_H = 56;
 const HEADER_GRADIENT_EXTRA_H = 16;
@@ -40,9 +42,9 @@ export function NotesHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const floatingSurface = {
-    backgroundColor: colors.card,
+    backgroundColor: withOpacity(colors.card, 0.94),
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: withOpacity(colors.border, 0.9),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
@@ -82,30 +84,51 @@ export function NotesHeader({
         </Svg>
       ) : null}
 
-      <View style={{ height: HEADER_H, justifyContent: 'center' }}>
-        {showCenter ? (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+      <View style={{ height: HEADER_H, flexDirection: 'row', alignItems: 'center' }}>
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingLeft: 8,
+            paddingRight: 8,
+            minWidth: 0,
+          }}>
+          <ToolbarItem
+            onPress={onLeftPress ?? (() => navigation.dispatch(DrawerActions.openDrawer()))}
+            accessibilityLabel={leftIcon === 'back' ? 'Back' : 'Open drawer'}
+            icon={leftIcon === 'back' ? 'chevron-left' : undefined}
+            iconSize={leftIcon === 'back' ? 32 : 24}
+            hitSlop={12}>
+            {leftIcon === 'drawer' ? (
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontFamily: 'MaterialSymbols_400Regular',
+                  fontSize: 28,
+                  lineHeight: 28,
+                  includeFontPadding: false,
+                }}>
+                dock_to_right
+              </Text>
+            ) : null}
+          </ToolbarItem>
+
+          {showCenter ? (
             <View
               style={{
                 ...floatingSurface,
                 height: 48,
-                maxWidth: '60%',
+                maxWidth: '100%',
                 paddingHorizontal: 16,
                 borderRadius: 24,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
+                flexShrink: 1,
+                minWidth: 0,
               }}>
               <MaterialIcons name={icon} size={20} color={colors.foreground} />
               <Text
@@ -120,98 +143,37 @@ export function NotesHeader({
                 {activeSpaceName}
               </Text>
             </View>
-          </View>
-        ) : null}
-
-        <View
-          style={{ position: 'absolute', left: 8, top: 0, bottom: 0, justifyContent: 'center' }}>
-          <Pressable
-            onPress={onLeftPress ?? (() => navigation.dispatch(DrawerActions.openDrawer()))}
-            hitSlop={12}
-            style={{
-              ...floatingSurface,
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            {leftIcon === 'back' ? (
-              <MaterialIcons name="chevron-left" size={32} color={colors.foreground} />
-            ) : (
-              <Text
-                style={{
-                  color: colors.foreground,
-                  fontFamily: 'MaterialSymbols_400Regular',
-                  fontSize: 28,
-                  lineHeight: 28,
-                  includeFontPadding: false,
-                }}>
-                dock_to_right
-              </Text>
-            )}
-          </Pressable>
+          ) : null}
         </View>
 
         <View
           style={{
-            position: 'absolute',
-            right: 8,
-            top: 0,
-            bottom: 0,
+            paddingRight: 8,
             flexDirection: 'row',
             alignItems: 'center',
             gap: showUndoRedo ? 12 : 0,
+            flexShrink: 0,
           }}>
           {showUndoRedo ? (
-            <>
-              <Pressable
-                onPress={onUndoPress}
-                accessibilityLabel="Undo"
-                style={{
-                  ...floatingSurface,
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <MaterialIcons name="undo" size={22} color={colors.foreground} />
-              </Pressable>
-              <Pressable
-                onPress={onRedoPress}
-                accessibilityLabel="Redo"
-                style={{
-                  ...floatingSurface,
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <MaterialIcons name="redo" size={22} color={colors.foreground} />
-              </Pressable>
-            </>
+            <ToolbarItemGroup
+              accessibilityLabel="Edit actions"
+              actions={[
+                { icon: 'undo', iconSize: 22, onPress: onUndoPress, accessibilityLabel: 'Undo' },
+                { icon: 'redo', iconSize: 22, onPress: onRedoPress, accessibilityLabel: 'Redo' },
+              ]}
+            />
           ) : null}
 
           <Menu
             visible={menuOpen}
             onDismiss={() => setMenuOpen(false)}
             anchor={
-              <Pressable
+              <ToolbarItem
                 onPress={() => setMenuOpen(true)}
                 hitSlop={12}
-                style={{
-                  ...floatingSurface,
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                accessibilityLabel="More options">
-                <MaterialIcons name="more-vert" size={24} color={colors.foreground} />
-              </Pressable>
+                icon="more-vert"
+                accessibilityLabel="More options"
+              />
             }
             contentStyle={{ backgroundColor: colors.card }}>
             <Menu.Item

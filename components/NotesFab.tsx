@@ -1,11 +1,12 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { LayoutChangeEvent, Pressable, Text, TextInput, View } from 'react-native';
+import { LayoutChangeEvent, Text, View } from 'react-native';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { ToolbarItem } from '@/components/Toolbar';
+import { SearchBar } from '@/components/SearchBar';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 type Props = {
@@ -68,89 +69,38 @@ export function NotesFab({ search, onSearchChange, showNewFolder = false, showAd
         ) : null}
         {showNewFolder ? (
           <View style={{ alignItems: 'flex-end', paddingRight: 4 }}>
-            <Pressable
+            <ToolbarItem
               onPress={() => {
                 // placeholder — folder create nanti
               }}
               accessibilityLabel="New folder"
+              icon="create-new-folder"
+              iconSize={22}
               style={{
                 width: 40,
                 height: 40,
-                borderRadius: 32,
+                borderRadius: 20,
                 backgroundColor: colors.secondary,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-              <MaterialIcons
-                name="create-new-folder"
-                size={22}
-                color={colors.secondaryForeground}
-              />
-            </Pressable>
+                borderWidth: 0,
+              }}
+            />
           </View>
         ) : null}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              height: 48,
-              borderRadius: 100,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.card,
-              paddingHorizontal: 12,
-            }}>
-            <MaterialIcons name="search" size={24} color={colors.mutedForeground} />
-            <TextInput
-              value={search}
-              onChangeText={onSearchChange}
-              placeholder="Search"
-              placeholderTextColor={colors.mutedForeground}
-              style={{
-                flex: 1,
-                color: colors.foreground,
-                fontSize: 18,
-                paddingVertical: 0,
-              }}
-              returnKeyType="search"
-            />
-            {search.length > 0 ? (
-              <Pressable
-                onPress={() => onSearchChange('')}
-                accessibilityLabel="Clear search"
-                hitSlop={4}
-                style={({ pressed }) => [
-                  {
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  },
-                  pressed && { opacity: 0.72, transform: [{ scale: 0.96 }] },
-                ]}>
-                <MaterialIcons name="close" size={22} color={colors.mutedForeground} />
-              </Pressable>
-            ) : null}
-          </View>
+          <SearchBar
+            value={search}
+            onChangeText={onSearchChange}
+            accessibilityLabel="Search notes"
+          />
 
           {showAdd ? (
-            <Pressable
+            <ToolbarItem
               onPress={() => router.push('/note/new')}
               accessibilityLabel="New note"
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 100,
                 backgroundColor: colors.primary,
-                borderWidth: 1,
                 borderColor: fabBorderColor,
-                alignItems: 'center',
-                justifyContent: 'center',
               }}>
               <Text
                 style={{
@@ -162,7 +112,7 @@ export function NotesFab({ search, onSearchChange, showNewFolder = false, showAd
                 }}>
                 edit_square
               </Text>
-            </Pressable>
+            </ToolbarItem>
           ) : null}
         </View>
       </View>
