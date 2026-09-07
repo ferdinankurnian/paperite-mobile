@@ -9,8 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import { NotesFab } from '@/components/NotesFab';
-import { getNotesForSpace, getSpaceById, type Note } from '@/lib/paperite-data';
+import { SpaceBottomBar } from '@/components/app/SpaceBottomBar';
+import { getNotesForSpace, type Note } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
@@ -38,7 +38,6 @@ function NoteRow({ note }: { note: Note }) {
       className="mx-2 mb-2 rounded-xl"
       style={{
         borderRadius: 16,
-        borderWidth: 1,
         overflow: 'hidden',
       }}>
       <Pressable
@@ -67,9 +66,9 @@ function NoteRow({ note }: { note: Note }) {
 
 export default function NotesListScreen() {
   const { colors } = useColorScheme();
-  const { activeSpaceId } = useSpace();
+  const { activeSpaceId, activeSpace } = useSpace();
   const allNotes = getNotesForSpace(activeSpaceId);
-  const space = getSpaceById(activeSpaceId);
+  const space = activeSpace;
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + 70;
@@ -130,7 +129,7 @@ export default function NotesListScreen() {
         }
       />
 
-      <NotesFab
+      <SpaceBottomBar
         search={search}
         onSearchChange={setSearch}
         showAdd={showFab}

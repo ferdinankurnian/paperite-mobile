@@ -1,14 +1,13 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useNavigation } from 'expo-router';
+import { DrawerActions } from 'expo-router/react-navigation';
 import { useState } from 'react';
 import { LayoutChangeEvent, Text, View } from 'react-native';
-import { DrawerActions } from 'expo-router/react-navigation';
-import { Menu } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { ToolbarItem, ToolbarItemGroup } from '@/components/Toolbar';
-import { getSpaceById } from '@/lib/paperite-data';
+import { ToolbarItem, ToolbarItemGroup } from '@/components/ui/Toolbar';
+import { ToolbarMenu } from '@/components/ui/ToolbarMenu';
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
@@ -16,46 +15,33 @@ import { withOpacity } from '@/theme/with-opacity';
 const HEADER_H = 56;
 const HEADER_GRADIENT_EXTRA_H = 16;
 
-type NotesHeaderProps = {
-  showCenter?: boolean;
+type AppHeaderProps = {
+  variant?: 'space' | 'editor';
   onLeftPress?: () => void;
-  leftIcon?: 'drawer' | 'back';
-  showUndoRedo?: boolean;
   onUndoPress?: () => void;
   onRedoPress?: () => void;
 };
 
-export function NotesHeader({
-  showCenter = true,
-  onLeftPress,
-  leftIcon = 'drawer',
-  showUndoRedo = false,
-  onUndoPress,
-  onRedoPress,
-}: NotesHeaderProps) {
+export function AppHeader({ variant = 'space', onLeftPress, onUndoPress, onRedoPress }: AppHeaderProps) {
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { activeSpaceId, activeSpaceName } = useSpace();
-  const space = getSpaceById(activeSpaceId);
-  const icon = (space?.icon ?? 'folder') as keyof typeof MaterialIcons.glyphMap;
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { activeSpace, activeSpaceName } = useSpace();
+  const isCustomIcon = !!activeSpace?.color;
+  const iconColor = activeSpace?.color ?? colors.foreground;
+  const iconName = (activeSpace?.icon ?? 'folder') as keyof typeof MaterialIcons.glyphMap;
   const [size, setSize] = useState({ w: 0, h: 0 });
   const floatingSurface = {
     backgroundColor: withOpacity(colors.card, 0.94),
     borderWidth: 1,
     borderColor: withOpacity(colors.border, 0.9),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 5,
   } as const;
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setSize({ w: width, h: height });
   };
   const gradientHeight = size.h + HEADER_GRADIENT_EXTRA_H;
+  const isEditor = variant === 'editor';
 
   return (
     <View
@@ -97,11 +83,11 @@ export function NotesHeader({
           }}>
           <ToolbarItem
             onPress={onLeftPress ?? (() => navigation.dispatch(DrawerActions.openDrawer()))}
-            accessibilityLabel={leftIcon === 'back' ? 'Back' : 'Open drawer'}
-            icon={leftIcon === 'back' ? 'chevron-left' : undefined}
-            iconSize={leftIcon === 'back' ? 32 : 24}
+            accessibilityLabel={isEditor ? 'Back' : 'Open drawer'}
+            icon={isEditor ? 'chevron-left' : undefined}
+            iconSize={isEditor ? 32 : 24}
             hitSlop={12}>
-            {leftIcon === 'drawer' ? (
+            {isEditor ? null : (
               <Text
                 style={{
                   color: colors.foreground,
@@ -112,10 +98,10 @@ export function NotesHeader({
                 }}>
                 dock_to_right
               </Text>
-            ) : null}
+            )}
           </ToolbarItem>
 
-          {showCenter ? (
+          {isEditor ? null : (
             <View
               style={{
                 ...floatingSurface,
@@ -130,7 +116,20 @@ export function NotesHeader({
                 flexShrink: 1,
                 minWidth: 0,
               }}>
-              <MaterialIcons name={icon} size={20} color={colors.foreground} />
+              {isCustomIcon ? (
+                <Text
+                  style={{
+                    fontFamily: 'MaterialSymbols_400Regular',
+                    fontSize: 20,
+                    lineHeight: 20,
+                    color: iconColor,
+                    includeFontPadding: false,
+                  }}>
+                  {String(activeSpace?.icon ?? 'folder').replace(/-/g, '_')}
+                </Text>
+              ) : (
+                <MaterialIcons name={iconName} size={20} color={iconColor} />
+              )}
               <Text
                 style={{
                   color: colors.foreground,
@@ -143,7 +142,7 @@ export function NotesHeader({
                 {activeSpaceName}
               </Text>
             </View>
-          ) : null}
+          )}
         </View>
 
         <View
@@ -151,10 +150,10 @@ export function NotesHeader({
             paddingRight: 8,
             flexDirection: 'row',
             alignItems: 'center',
-            gap: showUndoRedo ? 12 : 0,
+            gap: isEditor ? 12 : 0,
             flexShrink: 0,
           }}>
-          {showUndoRedo ? (
+          {isEditor ? (
             <ToolbarItemGroup
               accessibilityLabel="Edit actions"
               actions={[
@@ -164,37 +163,28 @@ export function NotesHeader({
             />
           ) : null}
 
-          <Menu
-            visible={menuOpen}
-            onDismiss={() => setMenuOpen(false)}
-            anchor={
-              <ToolbarItem
-                onPress={() => setMenuOpen(true)}
-                hitSlop={12}
-                icon="more-vert"
-                accessibilityLabel="More options"
-              />
-            }
-            contentStyle={{ backgroundColor: colors.card }}>
-            <Menu.Item
-              onPress={() => setMenuOpen(false)}
-              title="Rename"
-              leadingIcon="pencil-outline"
-              titleStyle={{ color: colors.foreground }}
-            />
-            <Menu.Item
-              onPress={() => setMenuOpen(false)}
-              title="Sort"
-              leadingIcon="sort"
-              titleStyle={{ color: colors.foreground }}
-            />
-            <Menu.Item
-              onPress={() => setMenuOpen(false)}
-              title="Select"
-              leadingIcon="checkbox-marked-outline"
-              titleStyle={{ color: colors.foreground }}
-            />
-          </Menu>
+          <ToolbarMenu
+            actions={[
+              {
+                title: 'Rename',
+                icon: 'edit',
+                accessibilityLabel: 'Rename',
+                onPress: () => {},
+              },
+              {
+                title: 'Sort',
+                icon: 'sort',
+                accessibilityLabel: 'Sort',
+                onPress: () => {},
+              },
+              {
+                title: 'Select',
+                icon: 'check-box',
+                accessibilityLabel: 'Select',
+                onPress: () => {},
+              },
+            ]}
+          />
         </View>
       </View>
     </View>

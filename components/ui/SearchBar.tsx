@@ -43,11 +43,6 @@ export function SearchBar({
           borderColor: withOpacity(colors.border, 0.9),
           backgroundColor: colors.card,
           paddingHorizontal: 12,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.12,
-          shadowRadius: 8,
-          elevation: 3,
         },
         style,
       ]}>

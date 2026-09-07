@@ -1,11 +1,11 @@
-export type SpaceId =
-  'inbox' | 'music' | 'under-essence' | 'journal' | 'avald-studio' | 'homesick' | 'trash';
+export type SpaceId = string;
 
 export type Space = {
   id: SpaceId;
   name: string;
   icon: string;
   kind: 'system' | 'space';
+  color?: string;
 };
 
 export type Note = {

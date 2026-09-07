@@ -1,13 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack as JsStack } from 'expo-router/js-stack';
-import { ScrollView, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { TextInput, View } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import type { EditorBridge } from '@10play/tentap-editor';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getNoteById } from '@/lib/paperite-data';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { NotesHeader } from '@/components/NotesHeader';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppHeader } from '@/components/app/AppHeader';
+import { NoteEditor } from '@/components/app/NoteEditor';
 
 export default function NoteEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -15,6 +18,8 @@ export default function NoteEditorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const note = getNoteById(id ?? '');
+  const editorRef = useRef<EditorBridge | null>(null);
+  const [title, setTitle] = useState(note?.title ?? '');
 
   if (!note) {
     return (
@@ -41,11 +46,11 @@ export default function NoteEditorScreen() {
       <JsStack.Screen
         options={{
           header: () => (
-            <NotesHeader
-              showCenter={false}
-              leftIcon="back"
+            <AppHeader
+              variant="editor"
               onLeftPress={() => router.back()}
-              showUndoRedo
+              onUndoPress={() => editorRef.current?.undo()}
+              onRedoPress={() => editorRef.current?.redo()}
             />
           ),
           headerTransparent: true,
@@ -53,22 +58,31 @@ export default function NoteEditorScreen() {
           cardStyle: { backgroundColor: colors.background },
         }}
       />
-      <ScrollView
-        contentContainerStyle={{
-          paddingTop: insets.top + 78,
-          paddingHorizontal: 20,
-          paddingBottom: 48,
-        }}
-        keyboardShouldPersistTaps="handled">
-        <PaperText
-          variant="headlineSmall"
-          style={{ color: colors.foreground, fontWeight: '700', marginBottom: 16 }}>
-          {note.title}
-        </PaperText>
-        <PaperText variant="bodyLarge" style={{ color: colors.foreground, lineHeight: 26 }}>
-          {note.body}
-        </PaperText>
-      </ScrollView>
+      <View style={{ flex: 1, paddingTop: insets.top + 78 }}>
+        <TextInput
+          placeholder="Title"
+          placeholderTextColor={colors.mutedForeground}
+          value={title}
+          onChangeText={setTitle}
+          style={{
+            color: colors.foreground,
+            fontSize: 22,
+            fontWeight: '700',
+            paddingHorizontal: 20,
+            paddingBottom: 12,
+            paddingTop: 4,
+          }}
+        />
+        <View style={{ flex: 1 }}>
+          <NoteEditor
+            key={note.id}
+            initialBody={note.body}
+            onEditorReady={(editor) => {
+              editorRef.current = editor;
+            }}
+          />
+        </View>
+      </View>
     </View>
   );
 }
