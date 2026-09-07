@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 
 import { useSpace } from '@/lib/SpaceContext';
-import { NotesHeader } from '@/components/NotesHeader';
+import { AppHeader } from '@/components/app/AppHeader';
 
 export default function TabLayout() {
   const { activeSpaceName } = useSpace();
@@ -9,7 +9,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        header: () => <NotesHeader />,
+        header: () => <AppHeader variant="space" />,
         headerShown: true,
         headerTransparent: true,
         headerShadowVisible: false,

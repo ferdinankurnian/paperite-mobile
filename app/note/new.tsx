@@ -1,38 +1,45 @@
 import { useRouter } from 'expo-router';
 import { Stack as JsStack } from 'expo-router/js-stack';
-import { useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { TextInput, View } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
+import type { EditorBridge } from '@10play/tentap-editor';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { AppHeader } from '@/components/app/AppHeader';
+import { NoteEditor } from '@/components/app/NoteEditor';
 
 export default function NewNoteScreen() {
   const { colors } = useColorScheme();
   const { activeSpaceName } = useSpace();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const editorRef = useRef<EditorBridge | null>(null);
   const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <JsStack.Screen
         options={{
-          title: 'New note',
-          headerStyle: { backgroundColor: colors.card },
-          headerTintColor: colors.foreground,
+          header: () => (
+            <AppHeader
+              variant="editor"
+              onLeftPress={() => router.back()}
+              onUndoPress={() => editorRef.current?.undo()}
+              onRedoPress={() => editorRef.current?.redo()}
+            />
+          ),
+          headerTransparent: true,
           headerShadowVisible: false,
           cardStyle: { backgroundColor: colors.background },
         }}
       />
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 48 }}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={{ flex: 1, paddingTop: insets.top + 78 }}>
         <PaperText
           variant="labelMedium"
-          style={{ color: colors.mutedForeground, marginBottom: 8 }}
-        >
+          style={{ color: colors.mutedForeground, marginBottom: 4, paddingHorizontal: 20 }}>
           in {activeSpaceName}
         </PaperText>
         <TextInput
@@ -44,33 +51,22 @@ export default function NewNoteScreen() {
             color: colors.foreground,
             fontSize: 22,
             fontWeight: '700',
-            marginBottom: 16,
-            padding: 0,
+            paddingHorizontal: 20,
+            paddingBottom: 12,
+            paddingTop: 4,
           }}
         />
-        <TextInput
-          placeholder="Start writing..."
-          placeholderTextColor={colors.mutedForeground}
-          value={body}
-          onChangeText={setBody}
-          multiline
-          textAlignVertical="top"
-          style={{
-            color: colors.foreground,
-            fontSize: 16,
-            lineHeight: 24,
-            minHeight: 240,
-            padding: 0,
-          }}
-        />
-        <PaperText
-          variant="bodySmall"
-          style={{ color: colors.mutedForeground, marginTop: 24 }}
-          onPress={() => router.back()}
-        >
-          (mock — belum save. tap buat balik)
-        </PaperText>
-      </ScrollView>
+        <View style={{ flex: 1 }}>
+          <NoteEditor
+            autofocus
+            initialBody=""
+            placeholder="Start writing..."
+            onEditorReady={(editor) => {
+              editorRef.current = editor;
+            }}
+          />
+        </View>
+      </View>
     </View>
   );
 }

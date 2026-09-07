@@ -5,8 +5,8 @@ import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { ToolbarItem } from '@/components/Toolbar';
-import { SearchBar } from '@/components/SearchBar';
+import { ToolbarItem } from '@/components/ui/Toolbar';
+import { SearchBar } from '@/components/ui/SearchBar';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 type Props = {
@@ -16,7 +16,7 @@ type Props = {
   showAdd?: boolean;
 };
 
-export function NotesFab({ search, onSearchChange, showNewFolder = false, showAdd = true }: Props) {
+export function SpaceBottomBar({ search, onSearchChange, showNewFolder = false, showAdd = true }: Props) {
   const { colors, isDarkColorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const [size, setSize] = useState({ w: 0, h: 0 });

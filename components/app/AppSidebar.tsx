@@ -1,22 +1,25 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import * as React from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SPACES, type Space, type SpaceId } from '@/lib/paperite-data';
+import { type Space, type SpaceId } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
+import { CreateSpaceSheet } from './CreateSpaceSheet';
 
 type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
-type DrawerNav = {
+type SidebarNav = {
   closeDrawer: () => void;
 };
 
 type Props = {
-  navigation: DrawerNav;
+  navigation: SidebarNav;
 };
 
 function SpaceRow({
@@ -30,6 +33,9 @@ function SpaceRow({
 }) {
   const { colors, isDarkColorScheme } = useColorScheme();
   const activeBackground = isDarkColorScheme ? colors.secondary : colors.muted;
+  // space baru (ada color) → material symbols + warna desktop. space lama → MaterialIcons biasa.
+  const isCustom = !!space.color;
+  const tint = space.color ?? (active ? colors.secondaryForeground : colors.foreground);
 
   return (
     <View
@@ -47,11 +53,26 @@ function SpaceRow({
           borderless: false,
         }}
         style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
-        <MaterialIcons
-          name={(space.icon as IconName) || 'folder'}
-          size={22}
-          color={active ? colors.secondaryForeground : colors.foreground}
-        />
+        {isCustom ? (
+          <Text
+            style={{
+              fontFamily: 'MaterialSymbols_400Regular',
+              fontSize: 22,
+              lineHeight: 22,
+              color: tint,
+              includeFontPadding: false,
+              width: 22,
+              textAlign: 'center',
+            }}>
+            {space.icon.replace(/-/g, '_')}
+          </Text>
+        ) : (
+          <MaterialIcons
+            name={(space.icon as IconName) || 'folder'}
+            size={22}
+            color={active ? colors.secondaryForeground : colors.foreground}
+          />
+        )}
         <PaperText
           variant="bodyLarge"
           style={{
@@ -67,14 +88,15 @@ function SpaceRow({
   );
 }
 
-export function SpaceDrawerContent({ navigation }: Props) {
+export function AppSidebar({ navigation }: Props) {
   const { colors } = useColorScheme();
-  const { activeSpaceId, setActiveSpaceId } = useSpace();
+  const { activeSpaceId, setActiveSpaceId, spaces } = useSpace();
   const insets = useSafeAreaInsets();
+  const sheetRef = React.useRef<BottomSheetModal>(null);
 
-  const systemTop = SPACES.filter((s) => s.id === 'inbox');
-  const userSpaces = SPACES.filter((s) => s.kind === 'space');
-  const systemBottom = SPACES.filter((s) => s.id === 'trash');
+  const systemTop = spaces.filter((s) => s.id === 'inbox');
+  const userSpaces = spaces.filter((s) => s.kind === 'space');
+  const systemBottom = spaces.filter((s) => s.id === 'trash');
 
   function selectSpace(id: SpaceId) {
     setActiveSpaceId(id);
@@ -82,13 +104,14 @@ export function SpaceDrawerContent({ navigation }: Props) {
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingTop: insets.top + 8,
-        paddingBottom: insets.bottom + 8,
-      }}
-      style={{ backgroundColor: colors.card }}>
+    <>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: insets.top + 8,
+          paddingBottom: insets.bottom + 8,
+        }}
+        style={{ backgroundColor: colors.card }}>
       <View className="mb-4 px-4 pt-2">
         <PaperText
           variant="headlineSmall"
@@ -119,7 +142,7 @@ export function SpaceDrawerContent({ navigation }: Props) {
 
       <View className="mx-2 mt-1 overflow-hidden rounded-xl">
         <Pressable
-          onPress={() => {}}
+          onPress={() => sheetRef.current?.present()}
           className="flex-row items-center gap-3 px-3 py-2.5"
           android_ripple={{
             color: withOpacity(colors.foreground, 0.14),
@@ -164,6 +187,8 @@ export function SpaceDrawerContent({ navigation }: Props) {
           </PaperText>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+      <CreateSpaceSheet sheetRef={sheetRef} onCreated={() => navigation.closeDrawer()} />
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Fragment, useState } from 'react';
 import {
   Platform,
@@ -26,6 +26,8 @@ type ToolbarItemBaseProps = {
   style?: StyleProp<ViewStyle>;
   hitSlop?: PressableProps['hitSlop'];
   testID?: string;
+  /** diterusin ke slot luar — dibutuhin primitive (dropdown trigger) buat measure. */
+  ref?: Ref<View>;
 };
 
 export type ToolbarItemProps = ToolbarItemBaseProps & {
@@ -48,6 +50,7 @@ export function ToolbarItem({
   style,
   hitSlop = 8,
   testID,
+  ref,
 }: ToolbarItemProps) {
   const { colors } = useColorScheme();
   const size = TOOLBAR_ITEM_SIZE;
@@ -57,6 +60,7 @@ export function ToolbarItem({
 
   return (
     <View
+      ref={ref}
       style={[
         styles.slot,
         grouped ? styles.groupedSlot : styles.singleSlot,
@@ -133,7 +137,6 @@ export function ToolbarItemGroup({
         {
           backgroundColor: colors.card,
           borderColor: withOpacity(colors.border, 0.9),
-          shadowColor: '#000',
         },
         style,
       ]}>
@@ -161,11 +164,6 @@ const styles = StyleSheet.create({
   },
   singleSlot: {
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 5,
   },
   groupedSlot: {
     borderWidth: 0,
@@ -187,11 +185,6 @@ const styles = StyleSheet.create({
     borderRadius: TOOLBAR_ITEM_SIZE / 2,
     borderWidth: 1,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 5,
   },
   separator: {
     width: StyleSheet.hairlineWidth,

@@ -12,11 +12,13 @@
     "postinstall": "node -e \"const fs=require('fs');const p='node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js';if(!fs.existsSync(p))process.exit(0);let s=fs.readFileSync(p,'utf8');if(s.includes('stiffness: 280')){console.log('[drawer-spring] ok');process.exit(0)}const a='stiffness: 1000,\\n      damping: 500,\\n      mass: 3,\\n      overshootClamping: true';const b='stiffness: 280,\\n      damping: 32,\\n      mass: 1,\\n      overshootClamping: false';if(!s.includes(a)){console.warn('[drawer-spring] skip');process.exit(0)}fs.writeFileSync(p,s.replace(a,b));console.log('[drawer-spring] patched')\" && node scripts/patch-expo-router-interaction-manager.cjs"
   },
   "dependencies": {
+    "@10play/tentap-editor": "^1.0.1",
     "@expo-google-fonts/courgette": "^0.4.1",
     "@expo-google-fonts/material-symbols": "^0.4.45",
     "@expo/log-box": "^56.0.12",
     "@expo/react-native-action-sheet": "^4.1.1",
     "@expo/vector-icons": "^15.0.2",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/slider": "5.2.0",
     "@react-native-picker/picker": "2.11.4",
@@ -25,6 +27,8 @@
     "@react-navigation/elements": "^2.9.25",
     "@react-navigation/native": "^7.1.6",
     "@rn-primitives/avatar": "^1.5.2",
+    "@rn-primitives/dropdown-menu": "^1.5.2",
+    "@rn-primitives/portal": "^1.5.3",
     "@rn-primitives/slot": "^1.5.2",
     "@shopify/flash-list": "^2.3.2",
     "class-variance-authority": "^0.7.0",
@@ -57,6 +61,7 @@
     "react-native-svg": "15.15.4",
     "react-native-uitextview": "^1.1.4",
     "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1",
     "react-native-worklets": "0.8.3",
     "rn-icon-mapper": "^0.0.1",
     "tailwind-merge": "^2.2.1"

@@ -5,7 +5,10 @@ import { MaterialSymbols_400Regular } from '@expo-google-fonts/material-symbols/
 import { ThemeProvider as NavThemeProvider } from 'expo-router/react-navigation';
 import { PaperProvider, MD3DarkTheme, MD3LightTheme, type MD3Theme } from 'react-native-paper';
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
+import { PortalHost } from '@rn-primitives/portal';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import { Stack as JsStack } from 'expo-router/js-stack';
 import { TransitionPresets } from 'expo-router/build/react-navigation/stack';
@@ -14,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { ThemeToggle } from '@/components/nativewindui/ThemeToggle';
 import { SpaceProvider } from '@/lib/SpaceContext';
+import { DrawerLockProvider } from '@/lib/DrawerLockContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { NAV_THEME } from '@/theme';
 import { COLORS } from '@/theme/colors';
@@ -70,46 +74,55 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <PaperProvider theme={paperTheme}>
-      <StatusBar
-        key={`root-status-bar-${isDarkColorScheme ? 'light' : 'dark'}`}
-        style={isDarkColorScheme ? 'light' : 'dark'}
-        translucent
-      />
-      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-        <SpaceProvider>
-          <ActionSheetProvider>
-            <NavThemeProvider value={NAV_THEME[colorScheme]}>
-              <JsStack
-                detachInactiveScreens={false}
-                screenOptions={{
-                  ...SCREEN_OPTIONS,
-                  cardStyle: { backgroundColor: colors.background },
-                }}>
-                <JsStack.Screen name="(drawer)" options={{ headerShown: false }} />
-                <JsStack.Screen
-                  name="note/[id]"
-                  options={{
-                    presentation: 'card',
-                    gestureEnabled: false,
-                    cardStyle: { backgroundColor: colors.background },
-                    ...TransitionPresets.SlideFromRightIOS,
-                  }}
-                />
-                <JsStack.Screen
-                  name="note/new"
-                  options={{
-                    presentation: 'card',
-                    ...TransitionPresets.SlideFromRightIOS,
-                  }}
-                />
-                <JsStack.Screen name="modal" options={MODAL_OPTIONS} />
-              </JsStack>
-            </NavThemeProvider>
-          </ActionSheetProvider>
-        </SpaceProvider>
-      </KeyboardProvider>
-    </PaperProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PaperProvider theme={paperTheme}>
+        <StatusBar
+          key={`root-status-bar-${isDarkColorScheme ? 'light' : 'dark'}`}
+          style={isDarkColorScheme ? 'light' : 'dark'}
+          translucent
+        />
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+          <SpaceProvider>
+            <DrawerLockProvider>
+              <BottomSheetModalProvider>
+                <ActionSheetProvider>
+                  <>
+                    <NavThemeProvider value={NAV_THEME[colorScheme]}>
+                      <JsStack
+                        detachInactiveScreens={false}
+                        screenOptions={{
+                          ...SCREEN_OPTIONS,
+                          cardStyle: { backgroundColor: colors.background },
+                        }}>
+                        <JsStack.Screen name="(drawer)" options={{ headerShown: false }} />
+                        <JsStack.Screen
+                          name="note/[id]"
+                          options={{
+                            presentation: 'card',
+                            gestureEnabled: false,
+                            cardStyle: { backgroundColor: colors.background },
+                            ...TransitionPresets.SlideFromRightIOS,
+                          }}
+                        />
+                        <JsStack.Screen
+                          name="note/new"
+                          options={{
+                            presentation: 'card',
+                            ...TransitionPresets.SlideFromRightIOS,
+                          }}
+                        />
+                        <JsStack.Screen name="modal" options={MODAL_OPTIONS} />
+                      </JsStack>
+                    </NavThemeProvider>
+                    <PortalHost />
+                  </>
+                </ActionSheetProvider>
+              </BottomSheetModalProvider>
+            </DrawerLockProvider>
+          </SpaceProvider>
+        </KeyboardProvider>
+      </PaperProvider>
+    </GestureHandlerRootView>
   );
 }
 
