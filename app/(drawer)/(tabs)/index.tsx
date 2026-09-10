@@ -2,16 +2,17 @@ import { FlashList } from '@shopify/flash-list';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { cssInterop } from 'nativewind';
 import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { Text as PaperText } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
 
 import { SpaceBottomBar } from '@/components/app/SpaceBottomBar';
-import { getNotesForSpace, type Note } from '@/lib/paperite-data';
+import { type Note } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
+import { useSpaceNotes } from '@/lib/use-space-notes';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 
@@ -41,7 +42,12 @@ function NoteRow({ note }: { note: Note }) {
         overflow: 'hidden',
       }}>
       <Pressable
-        onPress={() => router.push(`/note/${note.id}`)}
+        onPress={() =>
+          router.push({
+            pathname: '/note/[id]',
+            params: { id: note.id, title: note.title, spaceId: note.spaceId },
+          })
+        }
         className="px-4 py-3 active:opacity-80"
         android_ripple={{
           color: withOpacity(colors.foreground, 0.14),
@@ -67,7 +73,7 @@ function NoteRow({ note }: { note: Note }) {
 export default function NotesListScreen() {
   const { colors } = useColorScheme();
   const { activeSpaceId, activeSpace } = useSpace();
-  const allNotes = getNotesForSpace(activeSpaceId);
+  const { notes: allNotes, loading, reload } = useSpaceNotes(activeSpaceId);
   const space = activeSpace;
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -79,7 +85,11 @@ export default function NotesListScreen() {
       ? allNotes
       : allNotes.filter((n) => {
           const q = search.trim().toLowerCase();
-          return n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q);
+          return (
+            n.title.toLowerCase().includes(q) ||
+            n.preview.toLowerCase().includes(q) ||
+            n.body.toLowerCase().includes(q)
+          );
         });
 
   // inbox + spaces + trash: fab note. folder cuma di user space
@@ -90,11 +100,17 @@ export default function NotesListScreen() {
     useCallback(() => {
       const parent = navigation.getParent();
       parent?.setOptions({ swipeEnabled: true });
-    }, [navigation])
+      reload();
+    }, [navigation, reload])
   );
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
+      {loading && notes.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
       <FlashList
         data={notes}
         keyExtractor={(item) => item.id}
@@ -110,9 +126,9 @@ export default function NotesListScreen() {
         renderItem={({ item }) => <NoteRow note={item} />}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center gap-2 px-8">
-            <MaterialIcons
-              name={search.trim() ? 'search-off' : 'note-add'}
-              size={40}
+            <MaterialSymbol
+              name={search.trim() ? 'search_off' : 'note_add'}
+              size={46}
               color={colors.mutedForeground}
             />
             <PaperText variant="titleMedium" style={{ color: colors.foreground }}>
@@ -128,6 +144,7 @@ export default function NotesListScreen() {
           </View>
         }
       />
+      )}
 
       <SpaceBottomBar
         search={search}

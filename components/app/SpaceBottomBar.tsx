@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { LayoutChangeEvent, Text, View } from 'react-native';
+import { LayoutChangeEvent, View } from 'react-native';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { ToolbarItem } from '@/components/ui/Toolbar';
+import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useColorScheme } from '@/lib/useColorScheme';
 
@@ -74,8 +75,8 @@ export function SpaceBottomBar({ search, onSearchChange, showNewFolder = false, 
                 // placeholder — folder create nanti
               }}
               accessibilityLabel="New folder"
-              icon="create-new-folder"
-              iconSize={22}
+              icon="create_new_folder"
+              iconSize={26}
               style={{
                 width: 40,
                 height: 40,
@@ -102,16 +103,11 @@ export function SpaceBottomBar({ search, onSearchChange, showNewFolder = false, 
                 backgroundColor: colors.primary,
                 borderColor: fabBorderColor,
               }}>
-              <Text
-                style={{
-                  color: colors.primaryForeground,
-                  fontFamily: 'MaterialSymbols_400Regular',
-                  fontSize: 28,
-                  lineHeight: 28,
-                  includeFontPadding: false,
-                }}>
-                edit_square
-              </Text>
+              <MaterialSymbol
+                name="edit_square"
+                size={26}
+                color={colors.primaryForeground}
+              />
             </ToolbarItem>
           ) : null}
         </View>

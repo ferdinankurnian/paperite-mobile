@@ -1,38 +1,81 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as React from 'react';
 
-import { type Space, type SpaceId, SPACES } from '@/lib/paperite-data';
+import { type Space, type SpaceId } from '@/lib/paperite-data';
 import { SPACE_COLORS } from '@/lib/space-options';
+import { addSpaceFolder, ensureStorageReady, listSpaces } from '@/lib/storage';
+
+const ACTIVE_SPACE_KEY = 'paperite:active-space';
 
 type SpaceContextValue = {
+  ready: boolean;
   activeSpaceId: SpaceId;
   setActiveSpaceId: (id: SpaceId) => void;
   activeSpaceName: string;
   activeSpace: Space | undefined;
   spaces: Space[];
-  addSpace: (name: string, icon?: string, color?: string) => Space;
+  addSpace: (name: string, icon?: string, color?: string) => Promise<Space>;
+  refreshSpaces: () => Promise<Space[]>;
 };
 
 const SpaceContext = React.createContext<SpaceContextValue | null>(null);
 
 export function SpaceProvider({ children }: { children: React.ReactNode }) {
-  const [activeSpaceId, setActiveSpaceId] = React.useState<SpaceId>('music');
-  const [spaces, setSpaces] = React.useState<Space[]>(SPACES);
+  const [ready, setReady] = React.useState(false);
+  const [activeSpaceId, setActiveSpaceIdState] = React.useState<SpaceId>('inbox');
+  const [spaces, setSpaces] = React.useState<Space[]>([]);
 
-  const activeSpace = spaces.find((s) => s.id === activeSpaceId);
-  const activeSpaceName = activeSpace?.name ?? spaces[0]?.name ?? '';
-
-  const addSpace = React.useCallback((name: string, icon = 'folder', color: string = SPACE_COLORS[0]) => {
-    const trimmed = name.trim();
-    const id = `${trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
-    const space: Space = { id, name: trimmed, icon, kind: 'space', color };
-    setSpaces((prev) => [...prev, space]);
-    setActiveSpaceId(id);
-    return space;
+  const refreshSpaces = React.useCallback(async () => {
+    await ensureStorageReady();
+    const loaded = await listSpaces();
+    setSpaces(loaded);
+    return loaded;
   }, []);
 
+  React.useEffect(() => {
+    (async () => {
+      const loaded = await refreshSpaces();
+      const saved = await AsyncStorage.getItem(ACTIVE_SPACE_KEY).catch(() => null);
+      if (saved && loaded.some((s) => s.id === saved)) {
+        setActiveSpaceIdState(saved);
+      } else {
+        setActiveSpaceIdState(loaded[0]?.id ?? 'inbox');
+      }
+      setReady(true);
+    })();
+  }, [refreshSpaces]);
+
+  const setActiveSpaceId = React.useCallback((id: SpaceId) => {
+    setActiveSpaceIdState(id);
+    AsyncStorage.setItem(ACTIVE_SPACE_KEY, id).catch(() => undefined);
+  }, []);
+
+  const activeSpace = spaces.find((s) => s.id === activeSpaceId);
+  const activeSpaceName = activeSpace?.name ?? '';
+
+  const addSpace = React.useCallback(
+    async (name: string, icon = 'folder', color: string = SPACE_COLORS[0]) => {
+      await ensureStorageReady();
+      const space = await addSpaceFolder(name, icon, color);
+      setSpaces((prev) => [...prev, space]);
+      setActiveSpaceId(space.id);
+      return space;
+    },
+    [setActiveSpaceId]
+  );
+
   const value = React.useMemo(
-    () => ({ activeSpaceId, setActiveSpaceId, activeSpaceName, activeSpace, spaces, addSpace }),
-    [activeSpaceId, activeSpaceName, activeSpace, spaces, addSpace]
+    () => ({
+      ready,
+      activeSpaceId,
+      setActiveSpaceId,
+      activeSpaceName,
+      activeSpace,
+      spaces,
+      addSpace,
+      refreshSpaces,
+    }),
+    [ready, activeSpaceId, setActiveSpaceId, activeSpaceName, activeSpace, spaces, addSpace, refreshSpaces]
   );
 
   return <SpaceContext.Provider value={value}>{children}</SpaceContext.Provider>;

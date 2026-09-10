@@ -1,0 +1,147 @@
+/* styling dasar editor di webview. warna via CSS vars yang di-set
+   dari RN (theme message) — jangan hardcode light/dark di sini. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg, #ffffff);
+}
+
+/* konten full-bleed: ngescroll dari belakang status bar sampe nav bar.
+   --safe-top = tinggi header overlay (di-set dari RN), biar judul ga
+   ketiban header pas posisi awal. pola sama kayak list page. */
+body {
+  padding-top: var(--safe-top, 0px);
+}
+
+#editor {
+  padding: 0 20px 32px 20px;
+  box-sizing: border-box;
+  caret-color: var(--primary, #c23a50);
+}
+
+/* padding lega (biar ekor tulisan lewat ke atas toolbar melayang)
+   CUMA nyala pas konten udah > setengah layar. note pendek = pas,
+   ga ada dead scroll. di-toggle dari JS (paintRoomy). */
+body[data-roomy='true'] #editor {
+  padding-bottom: 170px;
+}
+
+/* judul: bagian dari scroll webview, tapi tetap plain string
+   (bukan node tiptap) biar 1:1 sama desktop yang nyimpen title terpisah. */
+#title {
+  padding: 4px 20px 12px 20px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--fg, #111111);
+  caret-color: var(--primary, #c23a50);
+  outline: none;
+  word-wrap: break-word;
+}
+
+#title[data-empty='true']::before {
+  content: attr(data-placeholder);
+  color: var(--muted, #999999);
+  pointer-events: none;
+}
+
+.ProseMirror {
+  outline: none;
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--fg, #111111);
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.ProseMirror > * {
+  margin: 0 0 12px 0;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--fg, #111111);
+}
+
+.ProseMirror h1 {
+  font-size: 1.6em;
+}
+.ProseMirror h2 {
+  font-size: 1.35em;
+}
+.ProseMirror h3 {
+  font-size: 1.15em;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--border, #e0e0e0);
+  padding-left: 12px;
+  margin-left: 0;
+  color: var(--muted, #666666);
+}
+
+.ProseMirror code {
+  background: var(--code-bg, #f0f0f0);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 0.9em;
+}
+
+.ProseMirror pre {
+  background: var(--code-bg, #f0f0f0);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.ProseMirror a {
+  color: var(--primary, #c23a50);
+  text-decoration: underline;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 24px;
+}
+
+.ProseMirror ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.ProseMirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ProseMirror ul[data-type='taskList'] li > input[type='checkbox'] {
+  margin-top: 5px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--primary, #c23a50);
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted, #999999);
+  pointer-events: none;
+  height: 0;
+}

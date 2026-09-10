@@ -1,4 +1,4 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { MaterialSymbol } from './MaterialSymbol';
 import {
   Pressable,
   TextInput,
@@ -46,7 +46,7 @@ export function SearchBar({
         },
         style,
       ]}>
-      <MaterialIcons name="search" size={24} color={colors.mutedForeground} />
+      <MaterialSymbol name="search" size={26} color={colors.mutedForeground} />
       <TextInput
         {...inputProps}
         value={value}
@@ -83,7 +83,7 @@ export function SearchBar({
             opacity: pressed ? 0.72 : 1,
             transform: [{ scale: pressed ? 0.96 : 1 }],
           })}>
-          <MaterialIcons name="close" size={24} color={colors.mutedForeground} />
+          <MaterialSymbol name="close" size={26} color={colors.mutedForeground} />
         </Pressable>
       ) : null}
     </View>

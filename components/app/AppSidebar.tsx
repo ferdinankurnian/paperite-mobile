@@ -1,18 +1,17 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import * as React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { type Space, type SpaceId } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
+import { SpaceIcon } from '@/lib/space-icons';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 import { CreateSpaceSheet } from './CreateSpaceSheet';
-
-type IconName = React.ComponentProps<typeof MaterialIcons>['name'];
 
 type SidebarNav = {
   closeDrawer: () => void;
@@ -33,8 +32,6 @@ function SpaceRow({
 }) {
   const { colors, isDarkColorScheme } = useColorScheme();
   const activeBackground = isDarkColorScheme ? colors.secondary : colors.muted;
-  // space baru (ada color) → material symbols + warna desktop. space lama → MaterialIcons biasa.
-  const isCustom = !!space.color;
   const tint = space.color ?? (active ? colors.secondaryForeground : colors.foreground);
 
   return (
@@ -53,26 +50,7 @@ function SpaceRow({
           borderless: false,
         }}
         style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
-        {isCustom ? (
-          <Text
-            style={{
-              fontFamily: 'MaterialSymbols_400Regular',
-              fontSize: 22,
-              lineHeight: 22,
-              color: tint,
-              includeFontPadding: false,
-              width: 22,
-              textAlign: 'center',
-            }}>
-            {space.icon.replace(/-/g, '_')}
-          </Text>
-        ) : (
-          <MaterialIcons
-            name={(space.icon as IconName) || 'folder'}
-            size={22}
-            color={active ? colors.secondaryForeground : colors.foreground}
-          />
-        )}
+        <SpaceIcon name={space.icon || 'folder'} size={22} color={tint} />
         <PaperText
           variant="bodyLarge"
           style={{
@@ -92,6 +70,7 @@ export function AppSidebar({ navigation }: Props) {
   const { colors } = useColorScheme();
   const { activeSpaceId, setActiveSpaceId, spaces } = useSpace();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const sheetRef = React.useRef<BottomSheetModal>(null);
 
   const systemTop = spaces.filter((s) => s.id === 'inbox');
@@ -100,8 +79,16 @@ export function AppSidebar({ navigation }: Props) {
 
   function selectSpace(id: SpaceId) {
     setActiveSpaceId(id);
+    // kalo lagi di settings (list maupun detail), balik dulu ke note list biar space-nya keliatan
+    if (pathname === '/settings' || pathname.startsWith('/settings/')) {
+      router.replace('/');
+    }
     navigation.closeDrawer();
   }
+
+  const onSettings = pathname === '/settings' || pathname.startsWith('/settings/');
+  // lagi di settings: space rows jangan active biar ga double highlight
+  const isSpaceActive = (id: SpaceId) => !onSettings && activeSpaceId === id;
 
   return (
     <>
@@ -124,7 +111,7 @@ export function AppSidebar({ navigation }: Props) {
         <SpaceRow
           key={space.id}
           space={space}
-          active={activeSpaceId === space.id}
+          active={isSpaceActive(space.id)}
           onPress={() => selectSpace(space.id)}
         />
       ))}
@@ -135,7 +122,7 @@ export function AppSidebar({ navigation }: Props) {
         <SpaceRow
           key={space.id}
           space={space}
-          active={activeSpaceId === space.id}
+          active={isSpaceActive(space.id)}
           onPress={() => selectSpace(space.id)}
         />
       ))}
@@ -149,7 +136,7 @@ export function AppSidebar({ navigation }: Props) {
             borderless: false,
           }}
           style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
-          <MaterialIcons name="add" size={22} color={colors.mutedForeground} />
+          <MaterialSymbol name="add" size={26} color={colors.mutedForeground} />
           <PaperText variant="bodyLarge" style={{ color: colors.mutedForeground }}>
             Add Space
           </PaperText>
@@ -164,16 +151,22 @@ export function AppSidebar({ navigation }: Props) {
         <SpaceRow
           key={space.id}
           space={space}
-          active={activeSpaceId === space.id}
+          active={isSpaceActive(space.id)}
           onPress={() => selectSpace(space.id)}
         />
       ))}
 
-      <View className="mx-2 mb-4 overflow-hidden rounded-xl">
+      <View
+        className="mx-2 mb-4 overflow-hidden rounded-xl"
+        style={{
+          backgroundColor: onSettings ? colors.secondary : 'transparent',
+          borderWidth: 1,
+          borderColor: onSettings ? withOpacity(colors.foreground, 0.1) : 'transparent',
+        }}>
         <Pressable
           onPress={() => {
             navigation.closeDrawer();
-            router.push('/modal');
+            router.push('/settings');
           }}
           className="flex-row items-center gap-3 px-3 py-2.5"
           android_ripple={{
@@ -181,9 +174,18 @@ export function AppSidebar({ navigation }: Props) {
             borderless: false,
           }}
           style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
-          <MaterialIcons name="menu" size={22} color={colors.foreground} />
-          <PaperText variant="bodyLarge" style={{ color: colors.foreground }}>
-            Menu
+          <MaterialSymbol
+            name="settings"
+            size={26}
+            color={onSettings ? colors.secondaryForeground : colors.foreground}
+          />
+          <PaperText
+            variant="bodyLarge"
+            style={{
+              color: onSettings ? colors.secondaryForeground : colors.foreground,
+              fontWeight: onSettings ? '600' : '400',
+            }}>
+            Settings
           </PaperText>
         </Pressable>
       </View>

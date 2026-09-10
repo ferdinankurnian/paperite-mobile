@@ -2,7 +2,6 @@ import { Dimensions } from 'react-native';
 import { Drawer } from 'expo-router/drawer';
 
 import { AppSidebar } from '@/components/app/AppSidebar';
-import { useDrawerLock } from '@/lib/DrawerLockContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -12,11 +11,6 @@ const SWIPE_EDGE = SCREEN_W;
 
 export default function DrawerLayout() {
   const { colors } = useColorScheme();
-  // dikunci pas overlay top-level (dropdown menu) kebuka — overlay transparan
-  // nggak bisa nge-block drawer swipe gesture, jadi swipe-nya dimatiin.
-  const { locked } = useDrawerLock();
-  // TODO(probe): hapus log ini kalo bug drawer udah kelar
-  console.log('[drawer-lock] drawer render, locked:', locked, 'swipeEnabled:', !locked);
 
   return (
     <Drawer
@@ -25,7 +19,9 @@ export default function DrawerLayout() {
         headerShown: false,
         // slide = drawer + content ikut gerak, animasi lebih kerasa
         drawerType: 'slide',
-        swipeEnabled: !locked,
+        // swipe drawer aman selama dropdown kebuka: menu dirender di Modal
+        // (window terpisah), touch nggak nyampe ke gesture drawer.
+        swipeEnabled: true,
         swipeEdgeWidth: SWIPE_EDGE,
         swipeMinDistance: 20,
         // biar flick pendek tetap ke-trigger pakai velocity
@@ -44,6 +40,13 @@ export default function DrawerLayout() {
         options={{
           drawerLabel: 'Home',
           title: 'Home',
+        }}
+      />
+      <Drawer.Screen
+        name="settings"
+        options={{
+          drawerLabel: 'Settings',
+          title: 'Settings',
         }}
       />
     </Drawer>

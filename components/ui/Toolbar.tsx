@@ -1,4 +1,4 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { MaterialSymbol } from './MaterialSymbol';
 import type { ReactNode, Ref } from 'react';
 import { Fragment, useState } from 'react';
 import {
@@ -14,7 +14,8 @@ import {
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 
-export type ToolbarIconName = keyof typeof MaterialIcons.glyphMap;
+/** ligature material symbols (underscore), mis. "more_vert", "undo", "format_bold". */
+export type ToolbarIconName = string;
 
 type ToolbarItemBaseProps = {
   accessibilityLabel: string;
@@ -45,7 +46,7 @@ export function ToolbarItem({
   disabled = false,
   icon,
   children,
-  iconSize = 24,
+  iconSize = 26,
   grouped = false,
   style,
   hitSlop = 8,
@@ -102,7 +103,7 @@ export function ToolbarItem({
           userStyle,
         ]}>
         {children ??
-          (icon ? <MaterialIcons name={icon} size={iconSize} color={colors.foreground} /> : null)}
+          (icon ? <MaterialSymbol name={icon} size={iconSize} color={colors.foreground} /> : null)}
       </Pressable>
     </View>
   );

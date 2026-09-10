@@ -37,6 +37,69 @@ function SymbolIcon({ name, size, color }: { name: string; size: number; color: 
   );
 }
 
+// memo: ketik nama / ganti tab ga ikut re-render 42 cell
+const SymbolCell = React.memo(function SymbolCell({
+  name,
+  selected,
+  selectedColor,
+  normalColor,
+  onSelect,
+}: {
+  name: string;
+  selected: boolean;
+  selectedColor: string;
+  normalColor: string;
+  onSelect: (name: string) => void;
+}) {
+  return (
+    <View style={{ width: '16.66%', aspectRatio: 1, padding: 3 }}>
+      <Pressable
+        onPress={() => onSelect(name)}
+        style={{
+          flex: 1,
+          borderRadius: 12,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: selected ? withOpacity(selectedColor, 0.18) : 'transparent',
+        }}>
+        <SymbolIcon name={name} size={28} color={selected ? selectedColor : normalColor} />
+      </Pressable>
+    </View>
+  );
+});
+
+const ColorDot = React.memo(function ColorDot({
+  value,
+  selected,
+  ringColor,
+  onSelect,
+}: {
+  value: string;
+  selected: boolean;
+  ringColor: string;
+  onSelect: (color: string) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => onSelect(value)}
+      accessibilityLabel={`Use ${value}`}
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: value,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: selected ? 2 : 0,
+        borderColor: selected ? ringColor : 'transparent',
+      }}>
+      {selected ? (
+        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>✓</Text>
+      ) : null}
+    </Pressable>
+  );
+});
+
 function SheetBackdrop(props: BottomSheetBackdropProps) {
   return (
     <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.4} />
@@ -51,7 +114,9 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
   const [icon, setIcon] = React.useState<string>('folder');
   const [color, setColor] = React.useState<string>(SPACE_COLORS[0]);
   const [tab, setTab] = React.useState<'icons' | 'upload'>('icons');
-  const snapPoints = React.useMemo(() => ['82%', '95%'], []);
+  // grid berat → mount belakangan biar animasi slide-up ga kecekek
+  const [gridReady, setGridReady] = React.useState(false);
+  const snapPoints = React.useMemo(() => ['88%'], []);
 
   // 14 warna desktop → 7 kolom x 2 baris, fix
   const colorRows = React.useMemo(() => {
@@ -64,6 +129,9 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
 
   const canCreate = name.trim().length > 0;
 
+  const handleSelectIcon = React.useCallback((next: string) => setIcon(next), []);
+  const handleSelectColor = React.useCallback((next: string) => setColor(next), []);
+
   const handleCreate = React.useCallback(() => {
     if (!name.trim()) return;
     addSpace(name, icon, color);
@@ -75,16 +143,22 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
     onCreated?.();
   }, [name, icon, color, addSpace, sheetRef, onCreated]);
 
+  const handleSheetChange = React.useCallback((index: number) => {
+    if (index >= 0) setGridReady(true);
+  }, []);
+
   // footer bawaan gorhom → absolute nempel bawah, ga keikut scroll
   const renderFooter = React.useCallback(
     (props: BottomSheetFooterProps) => (
-      <BottomSheetFooter {...props} bottomInset={insets.bottom}>
+      <BottomSheetFooter {...props} bottomInset={0}>
         <View
           style={{
             backgroundColor: colors.card,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
             paddingHorizontal: 20,
-            paddingTop: 8,
-            paddingBottom: 8,
+            paddingTop: 12,
+            paddingBottom: insets.bottom + 12,
           }}>
           <Pressable
             onPress={handleCreate}
@@ -117,37 +191,38 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
       index={0}
       snapPoints={snapPoints}
       enableDynamicSizing={false}
+      enablePanDownToClose
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       backdropComponent={SheetBackdrop}
       footerComponent={renderFooter}
+      onChange={handleSheetChange}
       handleIndicatorStyle={{ backgroundColor: colors.mutedForeground, width: 40 }}
       backgroundStyle={{ backgroundColor: colors.card }}
       style={{ overflow: 'hidden', borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
       <BottomSheetScrollView
         stickyHeaderIndices={[0]}
-        contentContainerStyle={{ paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 150 }}
         keyboardShouldPersistTaps="handled">
         {/* sticky top: preview + name + segmented */}
         <View
           style={{
             backgroundColor: colors.card,
             paddingHorizontal: 20,
-            paddingTop: 8,
-            paddingBottom: 12,
+            paddingTop: 16,
+            paddingBottom: 16,
           }}>
-          <View style={{ alignItems: 'center' }}>
+          <View style={{ alignItems: 'center', paddingVertical: 8 }}>
             <View
               style={{
-                width: 76,
-                height: 76,
-                borderRadius: 20,
+                width: 96,
+                height: 96,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: withOpacity(colors.foreground, 0.08),
               }}>
-              <SymbolIcon name={icon} size={38} color={color} />
+              <SymbolIcon name={icon} size={64} color={color} />
             </View>
           </View>
 
@@ -158,12 +233,12 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
               borderWidth: 1,
               borderColor: colors.border,
               paddingHorizontal: 14,
-              marginTop: 12,
+              marginTop: 16,
             }}>
             <BottomSheetTextInput
               value={name}
               onChangeText={setName}
-              placeholder="HOMESICK"
+              placeholder="New Space"
               placeholderTextColor={colors.mutedForeground}
               style={{ color: colors.foreground, fontSize: 17, height: 50, textAlign: 'center' }}
               returnKeyType="done"
@@ -177,7 +252,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
               backgroundColor: withOpacity(colors.foreground, 0.08),
               borderRadius: 12,
               padding: 3,
-              marginTop: 12,
+              marginTop: 16,
             }}>
             {(['icons', 'upload'] as const).map((t) => {
               const active = tab === t;
@@ -204,70 +279,48 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
           </View>
         </View>
 
-        {/* scroll content */}
+        {/* scroll content — grid dimount belakangan biar open-nya enteng */}
         <View style={{ paddingHorizontal: 20, paddingTop: 2, gap: 14 }}>
           {tab === 'icons' ? (
-            <>
-              <View style={{ gap: 10 }}>
-                <PaperText variant="labelLarge" style={{ color: colors.mutedForeground }}>
-                  Color
-                </PaperText>
+            gridReady ? (
+              <>
                 <View style={{ gap: 10 }}>
-                  {colorRows.map((row, i) => (
-                    <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      {row.map((c) => {
-                        const active = color === c;
-                        return (
-                          <Pressable
+                  <PaperText variant="labelLarge" style={{ color: colors.mutedForeground }}>
+                    Color
+                  </PaperText>
+                  <View style={{ gap: 10 }}>
+                    {colorRows.map((row, i) => (
+                      <View
+                        key={i}
+                        style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        {row.map((c) => (
+                          <ColorDot
                             key={c}
-                            onPress={() => setColor(c)}
-                            accessibilityLabel={`Use ${c}`}
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 14,
-                              backgroundColor: c,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderWidth: active ? 2 : 0,
-                              borderColor: active ? colors.foreground : 'transparent',
-                            }}>
-                            {active ? (
-                              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
-                                ✓
-                              </Text>
-                            ) : null}
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                            value={c}
+                            selected={color === c}
+                            ringColor={colors.foreground}
+                            onSelect={handleSelectColor}
+                          />
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {SPACE_SYMBOLS.map((sym) => (
+                    <SymbolCell
+                      key={sym}
+                      name={sym}
+                      selected={icon === sym}
+                      selectedColor={color}
+                      normalColor={colors.foreground}
+                      onSelect={handleSelectIcon}
+                    />
                   ))}
                 </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {SPACE_SYMBOLS.map((sym) => {
-                  const active = icon === sym;
-                  return (
-                    <Pressable
-                      key={sym}
-                      onPress={() => setIcon(sym)}
-                      style={{
-                        width: '15%',
-                        aspectRatio: 1,
-                        borderRadius: 10,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: active
-                          ? withOpacity(color, 0.18)
-                          : withOpacity(colors.foreground, 0.04),
-                      }}>
-                      <SymbolIcon name={sym} size={24} color={active ? color : colors.foreground} />
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </>
+              </>
+            ) : null
           ) : (
             <View
               style={{

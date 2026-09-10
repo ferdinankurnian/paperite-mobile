@@ -17,7 +17,6 @@ import { StatusBar } from 'expo-status-bar';
 
 import { ThemeToggle } from '@/components/nativewindui/ThemeToggle';
 import { SpaceProvider } from '@/lib/SpaceContext';
-import { DrawerLockProvider } from '@/lib/DrawerLockContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { NAV_THEME } from '@/theme';
 import { COLORS } from '@/theme/colors';
@@ -83,42 +82,48 @@ export default function RootLayout() {
         />
         <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
           <SpaceProvider>
-            <DrawerLockProvider>
-              <BottomSheetModalProvider>
-                <ActionSheetProvider>
-                  <>
-                    <NavThemeProvider value={NAV_THEME[colorScheme]}>
-                      <JsStack
-                        detachInactiveScreens={false}
-                        screenOptions={{
-                          ...SCREEN_OPTIONS,
+            <BottomSheetModalProvider>
+              <ActionSheetProvider>
+                <>
+                  <NavThemeProvider value={NAV_THEME[colorScheme]}>
+                    <JsStack
+                      detachInactiveScreens={false}
+                      screenOptions={{
+                        ...SCREEN_OPTIONS,
+                        cardStyle: { backgroundColor: colors.background },
+                      }}>
+                      <JsStack.Screen name="(drawer)" options={{ headerShown: false }} />
+                      <JsStack.Screen
+                        name="note/[id]"
+                        options={{
+                          presentation: 'card',
+                          gestureEnabled: false,
                           cardStyle: { backgroundColor: colors.background },
-                        }}>
-                        <JsStack.Screen name="(drawer)" options={{ headerShown: false }} />
-                        <JsStack.Screen
-                          name="note/[id]"
-                          options={{
-                            presentation: 'card',
-                            gestureEnabled: false,
-                            cardStyle: { backgroundColor: colors.background },
-                            ...TransitionPresets.SlideFromRightIOS,
-                          }}
-                        />
-                        <JsStack.Screen
-                          name="note/new"
-                          options={{
-                            presentation: 'card',
-                            ...TransitionPresets.SlideFromRightIOS,
-                          }}
-                        />
-                        <JsStack.Screen name="modal" options={MODAL_OPTIONS} />
-                      </JsStack>
-                    </NavThemeProvider>
-                    <PortalHost />
-                  </>
-                </ActionSheetProvider>
-              </BottomSheetModalProvider>
-            </DrawerLockProvider>
+                          ...TransitionPresets.SlideFromRightIOS,
+                        }}
+                      />
+                      <JsStack.Screen
+                        name="note/new"
+                        options={{
+                          presentation: 'card',
+                          ...TransitionPresets.SlideFromRightIOS,
+                        }}
+                      />
+                      <JsStack.Screen
+                        name="settings/[section]"
+                        options={{
+                          presentation: 'card',
+                          cardStyle: { backgroundColor: colors.background },
+                          ...TransitionPresets.SlideFromRightIOS,
+                        }}
+                      />
+                      <JsStack.Screen name="modal" options={MODAL_OPTIONS} />
+                    </JsStack>
+                  </NavThemeProvider>
+                  <PortalHost />
+                </>
+              </ActionSheetProvider>
+            </BottomSheetModalProvider>
           </SpaceProvider>
         </KeyboardProvider>
       </PaperProvider>

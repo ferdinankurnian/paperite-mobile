@@ -1,35 +1,50 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from 'expo-router/react-navigation';
 import { useState } from 'react';
 import { LayoutChangeEvent, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import type { MobileEditor } from '@/lib/editor/types';
 
 import { ToolbarItem, ToolbarItemGroup } from '@/components/ui/Toolbar';
+import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
+import { SpaceIcon } from '@/lib/space-icons';
 import { ToolbarMenu } from '@/components/ui/ToolbarMenu';
+import { NoteMenu } from '@/components/app/NoteMenu';
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
+import type { Note } from '@/lib/paperite-data';
 
 const HEADER_H = 56;
 const HEADER_GRADIENT_EXTRA_H = 16;
 
 type AppHeaderProps = {
-  variant?: 'space' | 'editor';
+  variant?: 'space' | 'editor' | 'settings' | 'detail';
   onLeftPress?: () => void;
   onUndoPress?: () => void;
   onRedoPress?: () => void;
+  /** detail variant: judul pill */
+  title?: string;
+  /** editor variant: note + bridge buat NoteMenu (parity dropdown desktop) */
+  note?: Note;
+  getEditor?: () => MobileEditor | null;
 };
 
-export function AppHeader({ variant = 'space', onLeftPress, onUndoPress, onRedoPress }: AppHeaderProps) {
+export function AppHeader({
+  variant = 'space',
+  onLeftPress,
+  onUndoPress,
+  onRedoPress,
+  title,
+  note,
+  getEditor,
+}: AppHeaderProps) {
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { activeSpace, activeSpaceName } = useSpace();
-  const isCustomIcon = !!activeSpace?.color;
   const iconColor = activeSpace?.color ?? colors.foreground;
-  const iconName = (activeSpace?.icon ?? 'folder') as keyof typeof MaterialIcons.glyphMap;
   const [size, setSize] = useState({ w: 0, h: 0 });
   const floatingSurface = {
     backgroundColor: withOpacity(colors.card, 0.94),
@@ -42,6 +57,9 @@ export function AppHeader({ variant = 'space', onLeftPress, onUndoPress, onRedoP
   };
   const gradientHeight = size.h + HEADER_GRADIENT_EXTRA_H;
   const isEditor = variant === 'editor';
+  const isSettings = variant === 'settings';
+  const isDetail = variant === 'detail';
+  const showBack = isEditor || isDetail;
 
   return (
     <View
@@ -83,25 +101,16 @@ export function AppHeader({ variant = 'space', onLeftPress, onUndoPress, onRedoP
           }}>
           <ToolbarItem
             onPress={onLeftPress ?? (() => navigation.dispatch(DrawerActions.openDrawer()))}
-            accessibilityLabel={isEditor ? 'Back' : 'Open drawer'}
-            icon={isEditor ? 'chevron-left' : undefined}
-            iconSize={isEditor ? 32 : 24}
+            accessibilityLabel={showBack ? 'Back' : 'Open drawer'}
+            icon={showBack ? 'arrow_back_ios_new' : undefined}
+            iconSize={26}
             hitSlop={12}>
-            {isEditor ? null : (
-              <Text
-                style={{
-                  color: colors.foreground,
-                  fontFamily: 'MaterialSymbols_400Regular',
-                  fontSize: 28,
-                  lineHeight: 28,
-                  includeFontPadding: false,
-                }}>
-                dock_to_right
-              </Text>
+            {showBack ? null : (
+              <MaterialSymbol name="dock_to_right" size={26} color={colors.foreground} />
             )}
           </ToolbarItem>
 
-          {isEditor ? null : (
+          {isEditor ? null : isDetail ? (
             <View
               style={{
                 ...floatingSurface,
@@ -116,20 +125,62 @@ export function AppHeader({ variant = 'space', onLeftPress, onUndoPress, onRedoP
                 flexShrink: 1,
                 minWidth: 0,
               }}>
-              {isCustomIcon ? (
-                <Text
-                  style={{
-                    fontFamily: 'MaterialSymbols_400Regular',
-                    fontSize: 20,
-                    lineHeight: 20,
-                    color: iconColor,
-                    includeFontPadding: false,
-                  }}>
-                  {String(activeSpace?.icon ?? 'folder').replace(/-/g, '_')}
-                </Text>
-              ) : (
-                <MaterialIcons name={iconName} size={20} color={iconColor} />
-              )}
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontSize: 17,
+                  fontWeight: '600',
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+                numberOfLines={1}>
+                {title ?? 'Settings'}
+              </Text>
+            </View>
+          ) : isSettings ? (
+            <View
+              style={{
+                ...floatingSurface,
+                height: 48,
+                maxWidth: '100%',
+                paddingHorizontal: 16,
+                borderRadius: 24,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                flexShrink: 1,
+                minWidth: 0,
+              }}>
+              <MaterialSymbol name="settings" size={26} color={colors.foreground} />
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontSize: 17,
+                  fontWeight: '600',
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+                numberOfLines={1}>
+                Settings
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={{
+                ...floatingSurface,
+                height: 48,
+                maxWidth: '100%',
+                paddingHorizontal: 16,
+                borderRadius: 24,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                flexShrink: 1,
+                minWidth: 0,
+              }}>
+              <SpaceIcon name={activeSpace?.icon ?? 'folder'} size={20} color={iconColor} />
               <Text
                 style={{
                   color: colors.foreground,
@@ -157,34 +208,40 @@ export function AppHeader({ variant = 'space', onLeftPress, onUndoPress, onRedoP
             <ToolbarItemGroup
               accessibilityLabel="Edit actions"
               actions={[
-                { icon: 'undo', iconSize: 22, onPress: onUndoPress, accessibilityLabel: 'Undo' },
-                { icon: 'redo', iconSize: 22, onPress: onRedoPress, accessibilityLabel: 'Redo' },
+                { icon: 'undo', iconSize: 26, onPress: onUndoPress, accessibilityLabel: 'Undo' },
+                { icon: 'redo', iconSize: 26, onPress: onRedoPress, accessibilityLabel: 'Redo' },
               ]}
             />
           ) : null}
 
-          <ToolbarMenu
-            actions={[
-              {
-                title: 'Rename',
-                icon: 'edit',
-                accessibilityLabel: 'Rename',
-                onPress: () => {},
-              },
-              {
-                title: 'Sort',
-                icon: 'sort',
-                accessibilityLabel: 'Sort',
-                onPress: () => {},
-              },
-              {
-                title: 'Select',
-                icon: 'check-box',
-                accessibilityLabel: 'Select',
-                onPress: () => {},
-              },
-            ]}
-          />
+          {isEditor ? (
+            note && getEditor ? (
+              <NoteMenu note={note} getEditor={getEditor} />
+            ) : null
+          ) : isSettings || isDetail ? null : (
+            <ToolbarMenu
+              actions={[
+                {
+                  title: 'Rename',
+                  icon: 'edit',
+                  accessibilityLabel: 'Rename',
+                  onPress: () => {},
+                },
+                {
+                  title: 'Sort',
+                  icon: 'sort',
+                  accessibilityLabel: 'Sort',
+                  onPress: () => {},
+                },
+                {
+                  title: 'Select',
+                  icon: 'check_box',
+                  accessibilityLabel: 'Select',
+                  onPress: () => {},
+                },
+              ]}
+            />
+          )}
         </View>
       </View>
     </View>
