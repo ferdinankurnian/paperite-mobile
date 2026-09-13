@@ -111,7 +111,64 @@ body[data-roomy='true'] #editor {
 
 .ProseMirror img {
   max-width: 100%;
+  height: auto;
   border-radius: 8px;
+}
+
+/* node image yang ke-select (habis di-hold) — kasih outline biar jelas
+   gambar mana yang bakal kena aksi menu. */
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary, #c23a50);
+  outline-offset: 2px;
+}
+
+/* bubble aksi nempel di gambar: S M L 1:1 + delete. tema ngikutin
+   CSS vars dari RN (light/dark otomatis). */
+#image-overlay {
+  position: fixed;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg, #ffffff);
+  border: 1px solid var(--border, #e0e0e0);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+
+#image-overlay[data-show='true'] {
+  display: flex;
+}
+
+#image-overlay button {
+  border: none;
+  background: transparent;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg, #111111);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#image-overlay button[data-active='true'] {
+  background: var(--primary, #c23a50);
+  color: #ffffff;
+}
+
+#image-overlay button.danger {
+  color: #ef4444;
+}
+
+#image-overlay .sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border, #e0e0e0);
 }
 
 .ProseMirror ul,

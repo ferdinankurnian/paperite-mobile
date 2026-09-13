@@ -3,11 +3,10 @@ import {
   AlignJustify,
   AlignLeft,
   AlignRight,
-  Bold,
   ChevronsUpDown,
   Code,
   Highlighter,
-  Italic,
+  ImagePlus,
   Link,
   List,
   ListChecks,
@@ -15,13 +14,12 @@ import {
   Quote,
   Redo2,
   RemoveFormatting,
-  Strikethrough,
-  Underline,
   Undo2,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
 import {
+  Alert,
   LayoutChangeEvent,
   Modal,
   Pressable,
@@ -32,8 +30,12 @@ import {
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
+import { File } from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 
 import { type EditorActiveState, type MobileEditor } from '@/lib/editor/types';
+import { mimeForExt } from '@/lib/storage/note-images';
 
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
@@ -83,8 +85,7 @@ const FADE_H = 40;
 
 function BarButton({
   icon,
-  iconSize = 22,
-  label,
+  iconSize = 26,
   active,
   onPress,
   accessibilityLabel,
@@ -94,7 +95,6 @@ function BarButton({
 }: {
   icon?: LucideIcon;
   iconSize?: number;
-  label?: string;
   active?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
@@ -113,28 +113,29 @@ function BarButton({
       android_ripple={{ color: withOpacity(colors.foreground, 0.14), borderless: false }}
       style={({ pressed }) => [
         {
-          minWidth: 44,
-          height: 44,
-          borderRadius: 13,
+          /* test: semua item dikasih bg grey + border + radius biar
+             misah, ga dempet kayak mockup polos. active tetep tint
+             primary biar kebaca. borderWidth selalu 1 biar ga geser. */
+          width: 52,
+          height: 52,
+          flexShrink: 0,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: active
+            ? withOpacity(colors.primary, 0.6)
+            : withOpacity(colors.border, 0.9),
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          paddingHorizontal: label ? 10 : 0,
-          gap: 2,
           backgroundColor: active
-            ? withOpacity(colors.primary, 0.14)
+            ? withOpacity(colors.primary, 0.16)
             : pressed
-              ? withOpacity(colors.foreground, 0.08)
-              : 'transparent',
+              ? withOpacity(colors.foreground, 0.14)
+              : '#ff0000', // TEMP DEBUG: merah nyala = bundle baru masuk. hapus abis test.
           opacity: dimmed ? 0.45 : 1,
         },
       ]}>
-      {children ?? (
-        <>
-          {Icon ? <Icon size={iconSize} color={tint} /> : null}
-          {label ? <Text style={{ color: tint, fontSize: 15 }}>{label}</Text> : null}
-        </>
-      )}
+      {children ?? (Icon ? <Icon size={iconSize} color={tint} /> : null)}
     </Pressable>
   );
 }
@@ -145,9 +146,10 @@ function Divider() {
     <View
       style={{
         width: 1,
-        height: 24,
+        height: 28,
+        flexShrink: 0,
         alignSelf: 'center',
-        marginHorizontal: 4,
+        marginHorizontal: 2,
         backgroundColor: withOpacity(colors.border, 0.9),
       }}
     />
@@ -250,16 +252,16 @@ function Sheet({
 
 /**
  * copy model floating paperite-rn (FormatToolbar): bar full-bleed nempel
- * tepi bawah (bukan pill), gradient fade di atasnya, satu scroll horizontal:
- * style dropdown, B I U S, highlight, text color, quote, code, link, align,
- * bullet, ordered, task, undo, redo.
+ * tepi bawah, gradient fade di atasnya, satu scroll horizontal — semua item
+ * tetep ada, ga ada yang dihapus.
  *
- * artstyle tetap paperite-mobile: bar hitam (colors.background), tombol 44
- * radius 13, active = tint primary.
+ * gaya ngikut mockup: tombol jumbo 52px, B I U S glyph teks gede (bukan
+ * ikon outline), gap lega 8. cuma pill Body yang bordered; sisanya
+ * transparan, background cuma muncul pas active/pressed.
+ * artstyle tetap paperite-mobile: bar hitam (colors.background),
+ * active = tint primary.
  *
  * yang sengaja beda dari rn:
- * - image nggak ada — butuh expo-image-picker + permission (dev build).
- *   command `setImage` udah siap, tinggal source-nya (TODO(mobile-image)).
  * - gradient fade pakai react-native-svg (kayak AppHeader), bukan
  *   expo-linear-gradient — hasilnya sama, tanpa dep baru.
  */
@@ -279,6 +281,8 @@ export function EditorToolbar({
   const [highlightOpen, setHighlightOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkValue, setLinkValue] = useState('');
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
 
   const onFadeLayout = (e: LayoutChangeEvent) => {
     setFadeWidth(e.nativeEvent.layout.width);
@@ -293,6 +297,72 @@ export function EditorToolbar({
   };
 
   const textColor = state.activeColor ?? colors.foreground;
+
+  // data URL masuk sebagai node image; storage layer (createNote/updateNote)
+  // yang mindahin ke file assets/ pas save. toolbar ga perlu tau note id.
+  const insertDataUrl = (dataUrl: string) => {
+    editor.setImage(dataUrl);
+    setImageOpen(false);
+  };
+
+  const pickFromGallery = async () => {
+    if (imageBusy) return;
+    setImageBusy(true);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('butuh izin galeri', 'kasih akses foto di settings biar bisa milih gambar.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+        base64: true,
+        // compatible = ios transcode heic/avif ke jpeg, bukan original.
+        // webview android ga render heic — ini yang selametin.
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      let base64 = asset.base64;
+      if (!base64) {
+        // jaga-jaga kalau picker ga balikin base64 — baca filenya langsung.
+        base64 = await new File(asset.uri).base64();
+      }
+      const ext = asset.fileName?.split('.').pop();
+      const mime = asset.mimeType ?? (ext ? mimeForExt(ext) : 'image/jpeg');
+      insertDataUrl(`data:${mime};base64,${base64}`);
+    } catch {
+      Alert.alert('gagal masukin gambar', 'coba lagi.');
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    if (imageBusy) return;
+    setImageBusy(true);
+    try {
+      // ios 16+ yang deny paste permission kebacanya sama kayak kosong
+      // (limitasi ios) — pesannya disamain aja biar ga ngaco.
+      if (!(await Clipboard.hasImageAsync())) {
+        Alert.alert('clipboard kosong', 'copy gambar dulu baru paste.');
+        return;
+      }
+      const img = await Clipboard.getImageAsync({ format: 'png' });
+      if (!img?.data) {
+        Alert.alert('paste gagal', 'gambar di clipboard ga kebaca.');
+        return;
+      }
+      // data udah full data URL (ada prefix data:image/…;base64,).
+      insertDataUrl(img.data);
+    } catch {
+      Alert.alert('paste gagal', 'coba lagi.');
+    } finally {
+      setImageBusy(false);
+    }
+  };
 
   return (
     <View onLayout={onFadeLayout} style={{ position: 'relative' }}>
@@ -320,10 +390,12 @@ export function EditorToolbar({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingTop: 8,
-            paddingBottom: 8 + bottomInset,
+            paddingTop: 10,
+            paddingBottom: 10 + bottomInset,
             alignItems: 'center',
-            gap: 2,
+            // lega dikit biar ga dempet: item sekarang ada bg + border
+            // jadi butuh napas antar kotak.
+            gap: 10,
           }}>
           <Pressable
             onPress={() => setBlockOpen((open) => !open)}
@@ -332,51 +404,89 @@ export function EditorToolbar({
             android_ripple={{ color: withOpacity(colors.foreground, 0.14), borderless: false }}
             style={({ pressed }) => [
               {
-                marginRight: 4,
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 8,
-                borderRadius: 13,
+                justifyContent: 'center',
+                flexShrink: 0,
+                borderRadius: 14,
                 borderWidth: 1,
                 borderColor: withOpacity(colors.border, 0.9),
                 backgroundColor: colors.muted,
-                paddingHorizontal: 12,
-                height: 44,
+                paddingHorizontal: 16,
+                height: 52,
                 opacity: pressed && !blockOpen ? 0.7 : 1,
               },
             ]}>
-            <Text style={{ color: colors.foreground, fontSize: 17 }}>{blockLabel}</Text>
-            <ChevronsUpDown size={18} color={colors.mutedForeground} strokeWidth={1.5} />
+            <Text
+              numberOfLines={1}
+              style={{ color: colors.foreground, fontSize: 18, includeFontPadding: false }}>
+              {blockLabel}
+            </Text>
+            <View style={{ marginLeft: 8, alignItems: 'center', justifyContent: 'center' }}>
+              <ChevronsUpDown size={20} color={colors.mutedForeground} strokeWidth={1.5} />
+            </View>
           </Pressable>
 
+          {/* B I U S pakai glyph teks gede ala mockup, bukan ikon outline. */}
           <BarButton
-            icon={Bold}
             active={state.isBoldActive}
             onPress={() => editor.toggleBold()}
             accessibilityLabel="Bold"
-            activeColor={colors.primary}
-          />
+            activeColor={colors.primary}>
+            <Text
+              style={{
+                fontSize: 27,
+                fontWeight: '700',
+                color: state.isBoldActive ? colors.primary : colors.foreground,
+              }}>
+              B
+            </Text>
+          </BarButton>
           <BarButton
-            icon={Italic}
             active={state.isItalicActive}
             onPress={() => editor.toggleItalic()}
             accessibilityLabel="Italic"
-            activeColor={colors.primary}
-          />
+            activeColor={colors.primary}>
+            <Text
+              style={{
+                fontSize: 27,
+                fontWeight: '500',
+                fontStyle: 'italic',
+                color: state.isItalicActive ? colors.primary : colors.foreground,
+              }}>
+              I
+            </Text>
+          </BarButton>
           <BarButton
-            icon={Underline}
             active={state.isUnderlineActive}
             onPress={() => editor.toggleUnderline()}
             accessibilityLabel="Underline"
-            activeColor={colors.primary}
-          />
+            activeColor={colors.primary}>
+            <Text
+              style={{
+                fontSize: 26,
+                fontWeight: '500',
+                textDecorationLine: 'underline',
+                color: state.isUnderlineActive ? colors.primary : colors.foreground,
+              }}>
+              U
+            </Text>
+          </BarButton>
           <BarButton
-            icon={Strikethrough}
             active={state.isStrikeActive}
             onPress={() => editor.toggleStrike()}
             accessibilityLabel="Strikethrough"
-            activeColor={colors.primary}
-          />
+            activeColor={colors.primary}>
+            <Text
+              style={{
+                fontSize: 26,
+                fontWeight: '500',
+                textDecorationLine: 'line-through',
+                color: state.isStrikeActive ? colors.primary : colors.foreground,
+              }}>
+              S
+            </Text>
+          </BarButton>
           <Divider />
           <BarButton
             icon={Highlighter}
@@ -391,13 +501,13 @@ export function EditorToolbar({
             accessibilityLabel="Text color"
             activeColor={colors.primary}>
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: textColor }}>A</Text>
+              <Text style={{ fontSize: 21, fontWeight: '600', color: textColor }}>A</Text>
               <View
                 style={{
                   marginTop: 2,
-                  height: 2,
-                  width: 16,
-                  borderRadius: 1,
+                  height: 3,
+                  width: 18,
+                  borderRadius: 1.5,
                   backgroundColor: textColor,
                 }}
               />
@@ -428,12 +538,18 @@ export function EditorToolbar({
             accessibilityLabel="Link"
             activeColor={colors.primary}
           />
+          <BarButton
+            icon={ImagePlus}
+            onPress={() => setImageOpen(true)}
+            accessibilityLabel="Insert image"
+            activeColor={colors.primary}
+          />
           <Divider />
           {ALIGN_OPTIONS.map(({ key, icon }) => (
             <BarButton
               key={key}
               icon={icon}
-              iconSize={21}
+              iconSize={24}
               active={state.textAlign === key}
               onPress={() => editor.setTextAlign(key)}
               accessibilityLabel={`Align ${key}`}
@@ -465,7 +581,7 @@ export function EditorToolbar({
           <Divider />
           <BarButton
             icon={Undo2}
-            iconSize={21}
+            iconSize={24}
             dimmed={!state.canUndo}
             onPress={() => editor.undo()}
             accessibilityLabel="Undo"
@@ -473,7 +589,7 @@ export function EditorToolbar({
           />
           <BarButton
             icon={Redo2}
-            iconSize={21}
+            iconSize={24}
             dimmed={!state.canRedo}
             onPress={() => editor.redo()}
             accessibilityLabel="Redo"
@@ -487,7 +603,7 @@ export function EditorToolbar({
           style={{
             position: 'absolute',
             left: 16,
-            bottom: 64 + bottomInset,
+            bottom: 80 + bottomInset,
             width: 220,
             borderRadius: 16,
             borderWidth: 1,
@@ -643,6 +759,99 @@ export function EditorToolbar({
                 }}>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: colors.background }}>
                   Apply
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={imageOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageOpen(false)}>
+        <Pressable
+          style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.2)' }}
+          onPress={() => setImageOpen(false)}>
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              backgroundColor: colors.card,
+              borderWidth: 1,
+              borderColor: withOpacity(colors.border, 0.9),
+              paddingHorizontal: 16,
+              paddingBottom: 40,
+              paddingTop: 12,
+            }}>
+            <View
+              style={{
+                marginBottom: 12,
+                height: 4,
+                width: 40,
+                alignSelf: 'center',
+                borderRadius: 2,
+                backgroundColor: colors.border,
+              }}
+            />
+            <Text
+              style={{
+                marginBottom: 4,
+                fontSize: 16,
+                fontWeight: '600',
+                color: colors.foreground,
+              }}>
+              Insert image
+            </Text>
+            <Text
+              style={{
+                marginBottom: 12,
+                fontSize: 13,
+                color: colors.mutedForeground,
+              }}>
+              {imageBusy ? 'lagi diproses…' : 'kesimpen di folder note, kebawa pas sync desktop.'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                onPress={pickFromGallery}
+                disabled={imageBusy}
+                accessibilityLabel="Pick from gallery"
+                android_ripple={{ color: withOpacity(colors.foreground, 0.14) }}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  borderRadius: 14,
+                  backgroundColor: colors.foreground,
+                  paddingVertical: 12,
+                  opacity: imageBusy ? 0.6 : 1,
+                }}>
+                <ImagePlus size={20} color={colors.background} />
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colors.background }}>
+                  Gallery
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={pasteFromClipboard}
+                disabled={imageBusy}
+                accessibilityLabel="Paste from clipboard"
+                android_ripple={{ color: withOpacity(colors.foreground, 0.14) }}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: withOpacity(colors.border, 0.9),
+                  paddingVertical: 12,
+                  opacity: imageBusy ? 0.6 : 1,
+                }}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colors.foreground }}>
+                  Paste
                 </Text>
               </Pressable>
             </View>

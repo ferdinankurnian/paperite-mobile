@@ -18,6 +18,8 @@ export type NoteDoc = {
   title: string;
   content: NoteDocNode[];
   updatedAt: number;
+  /** 1:1 desktop — pin state ikut di note.json biar sync copy folder aman. */
+  pinned?: boolean;
   [key: string]: unknown;
 };
 

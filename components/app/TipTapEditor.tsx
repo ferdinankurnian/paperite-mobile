@@ -8,9 +8,11 @@ import { EDITOR_HTML } from '@/lib/editor/tiptap-bundle';
 import {
   EMPTY_EDITOR_STATE,
   type EditorActiveState,
+  type ImageSizePreset,
   type MobileEditor,
   type TipTapDoc,
 } from '@/lib/editor/types';
+import { resolveDocForDisplay } from '@/lib/storage/note-images';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 type TipTapEditorProps = {
@@ -20,6 +22,10 @@ type TipTapEditorProps = {
   autofocus?: boolean;
   /** new note: fokus ke judul dulu, bukan ke isi. */
   autofocusTitle?: boolean;
+  /** identitas note buat resolve image assets/ → data URL pas display.
+   *  path posix penuh ("Riset/Meeting/<uuid>"). kosong (new note) =
+   *  konten dikirim mentah, ga ada yang perlu di-resolve. */
+  noteRef?: { path: string } | null;
   /** padding atas konten web (px) buat ngindarin header overlay.
    *  [id] kirim tinggi header, new.tsx 0 (layout manual di atas webview). */
   contentTopPadding?: number;
@@ -43,6 +49,7 @@ export function TipTapEditor({
   placeholder = 'Start writing...',
   autofocus = false,
   autofocusTitle = false,
+  noteRef = null,
   contentTopPadding = 0,
   onReady,
   onContentChange,
@@ -59,6 +66,12 @@ export function TipTapEditor({
   const onTitleChangeRef = useRef(onTitleChange);
   const onReadyRef = useRef(onReady);
   const initialContentRef = useRef(initialContent);
+  // dibekuin pas mount — screen key={note.id} jadi ganti note = remount.
+  const noteRefFrozen = useRef(noteRef);
+  const resolvedContentRef = useRef<TipTapDoc | null>(null);
+  // user udah ngetik sebelum image resolve kelar → jangan timpa ketikan
+  // sama hasil resolve yang stale.
+  const hasEditedRef = useRef(false);
   const initialTitleRef = useRef(title);
   const placeholderRef = useRef(placeholder);
   const autofocusRef = useRef(autofocus);
@@ -116,6 +129,41 @@ export function TipTapEditor({
     }
   }
 
+  // konten mentah dikirim langsung pas ready biar first paint cepet.
+  // image resolve nyusul async, swap kalau user belum ngetik apa-apa.
+  function sendInitialContent() {
+    if (!readyRef.current || !resolvedContentRef.current) return;
+    send({ type: 'setContent', doc: resolvedContentRef.current });
+  }
+
+  // resolve sekali pas mount: assets/xxx → data URL biar webview render.
+  useEffect(() => {
+    let cancelled = false;
+    const raw = initialContentRef.current;
+    const nr = noteRefFrozen.current;
+    // langsung bisa dirender — ready yang datang belakangan tinggal flush.
+    resolvedContentRef.current = raw;
+    sendInitialContent();
+    if (!nr) return;
+    resolveDocForDisplay(nr.path, raw).then(
+      (doc) => {
+        if (cancelled || doc === raw) return;
+        resolvedContentRef.current = doc;
+        // webview belum ready → ikut keflush pas ready. udah ready + belum
+        // diedit → swap images. udah diedit → skip, teks menang.
+        if (!readyRef.current) return;
+        if (!hasEditedRef.current) send({ type: 'setContent', doc });
+      },
+      () => {
+        // file korup / ga kebaca — mentah udah kekirim di atas, diem aja.
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function request<T>(what: 'json' | 'text' | 'html' | 'title'): Promise<T> {
     const id = reqIdRef.current++;
     return new Promise<T>((resolve, reject) => {
@@ -165,6 +213,8 @@ export function TipTapEditor({
       unsetHighlight: () => command('unsetHighlight'),
       setLink: (url) => command('setLink', url),
       setImage: (src) => command('setImage', src),
+      deleteImage: () => command('deleteImage'),
+      setImageSize: (preset: ImageSizePreset) => command('setImageSize', preset),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -188,7 +238,7 @@ export function TipTapEditor({
       case 'ready': {
         readyRef.current = true;
         send({ type: 'theme', cssVars: cssVarsRef.current, placeholder: placeholderRef.current });
-        send({ type: 'setContent', doc: initialContentRef.current });
+        sendInitialContent();
         send({ type: 'setTitle', text: initialTitleRef.current });
         setWebReady(true);
         if (autofocusTitleRef.current) {
@@ -202,7 +252,10 @@ export function TipTapEditor({
         break;
       }
       case 'update': {
-        if (msg.json) onContentChangeRef.current?.(msg.json, msg.text ?? '');
+        if (msg.json) {
+          hasEditedRef.current = true;
+          onContentChangeRef.current?.(msg.json, msg.text ?? '');
+        }
         break;
       }
       case 'title': {

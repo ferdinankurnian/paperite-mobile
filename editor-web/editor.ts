@@ -18,6 +18,7 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 import StarterKit from '@tiptap/starter-kit';
+import { NodeSelection } from '@tiptap/pm/state';
 import { Editor } from '@tiptap/core';
 
 type Outgoing =
@@ -38,6 +39,9 @@ type Incoming =
 declare global {
   interface Window {
     __paperiteReady?: boolean;
+    /** dipanggil native android (OnReceiveContentListener) buat nampilin
+     *  image yang di-paste dari gboard. null di web/ios — aman diabaikan. */
+    __paperiteReceiveImages?: (srcs: string[]) => void;
   }
 }
 
@@ -82,6 +86,44 @@ const editor = new Editor({
     attributes: {
       id: 'paperite-prosemirror',
     },
+    // paste/drop image langsung jadi node image (base64 data URL).
+    // sisi RN (lib/storage/note-images.ts) mindahin data URL ke file
+    // assets/ pas save, jadi note.json tetap path relatif 1:1 desktop.
+    handlePaste: (_view, event) => {
+      const files: File[] = [];
+      const items = event.clipboardData?.items;
+      if (items) {
+        for (const item of items) {
+          if (!item.type.startsWith('image/')) continue;
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      // fallback: beberapa webview/browser naruh file di clipboardData.files.
+      const rawFiles = event.clipboardData?.files;
+      if (files.length === 0 && rawFiles) {
+        for (const file of rawFiles) {
+          if (file.type.startsWith('image/')) files.push(file);
+        }
+      }
+      if (files.length === 0) return false;
+      event.preventDefault();
+      insertImageFiles(files);
+      return true;
+    },
+    handleDrop: (_view, event) => {
+      const files: File[] = [];
+      const rawFiles = event.dataTransfer?.files;
+      if (rawFiles) {
+        for (const file of rawFiles) {
+          if (file.type.startsWith('image/')) files.push(file);
+        }
+      }
+      if (files.length === 0) return false;
+      event.preventDefault();
+      insertImageFiles(files);
+      return true;
+    },
   },
   onUpdate: () => {
     scheduleUpdate();
@@ -94,6 +136,251 @@ const editor = new Editor({
 
 let updateTimer: ReturnType<typeof setTimeout> | null = null;
 let titleTimer: ReturnType<typeof setTimeout> | null = null;
+
+// tiap file dibaca async; insert satu-satu biar urutan paste/drop kejaga.
+function insertImageFiles(files: File[]) {
+  for (const file of files) {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result !== 'string') return;
+      editor
+        .chain()
+        .focus()
+        .setImage({ src: reader.result, alt: file.name || 'image' })
+        .run();
+    });
+    reader.readAsDataURL(file);
+  }
+}
+
+// jalur native android: gboard kirim commitContent → java baca bytes →
+// base64 → manggil ini. insert kayak paste biasa, save ke assets/ diurus RN.
+function receiveImageDataUrls(srcs: string[]) {
+  for (const src of srcs) {
+    if (!src.startsWith('data:image/')) continue;
+    editor.chain().focus().setImage({ src, alt: 'pasted image' }).run();
+  }
+}
+
+window.__paperiteReceiveImages = receiveImageDataUrls;
+
+// tap / hold (touch) / klik-kanan (mouse) di gambar → select node +
+// overlay aksi. teks biasa ga disentuh: fokus & menu native biarin.
+function imgFromTarget(target: EventTarget | null): HTMLImageElement | null {
+  if (target instanceof HTMLImageElement) return target;
+  if (target instanceof HTMLElement) {
+    const img = target.closest('img');
+    return img instanceof HTMLImageElement ? img : null;
+  }
+  return null;
+}
+
+let lastImageMenuAt = 0;
+let overlayImg: HTMLImageElement | null = null;
+
+const overlay = document.createElement('div');
+overlay.id = 'image-overlay';
+overlay.setAttribute('data-show', 'false');
+overlay.innerHTML =
+  '<button type="button" data-size="small">S</button>' +
+  '<button type="button" data-size="medium">M</button>' +
+  '<button type="button" data-size="large">L</button>' +
+  '<button type="button" data-size="original">1:1</button>' +
+  '<span class="sep"></span>' +
+  '<button type="button" data-action="delete" class="danger" aria-label="Delete image">' +
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
+  '</button>';
+document.body.appendChild(overlay);
+
+// pointerdown di overlay jangan sampe ngerusak selection gambar.
+overlay.addEventListener('pointerdown', (e) => e.preventDefault());
+overlay.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button');
+  if (!btn) return;
+  if (btn.dataset.action === 'delete') {
+    deleteSelectedImage();
+    return;
+  }
+  const preset = btn.dataset.size as ImagePreset | undefined;
+  if (preset) {
+    applyImageSize(preset);
+    refreshOverlay();
+  }
+});
+
+function currentPreset(): ImagePreset | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') {
+    return null;
+  }
+  const width = selection.node.attrs.width;
+  if (typeof width !== 'number' || !Number.isFinite(width)) return 'original';
+  const container = document.getElementById('editor');
+  const containerWidth = container?.clientWidth || editor.view.dom.clientWidth || width;
+  const frac = width / containerWidth;
+  const cands: readonly (readonly [ImagePreset, number])[] = [
+    ['small', 1 / 3],
+    ['medium', 2 / 3],
+    ['large', 1],
+  ];
+  let best: ImagePreset = 'small';
+  let bestDist = Infinity;
+  for (const [preset, target] of cands) {
+    const dist = Math.abs(frac - target);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = preset;
+    }
+  }
+  return best;
+}
+
+function refreshOverlay() {
+  if (!overlayImg) return;
+  const active = currentPreset();
+  overlay.querySelectorAll('button[data-size]').forEach((btn) => {
+    const el = btn as HTMLButtonElement;
+    el.setAttribute('data-active', String(el.dataset.size === active));
+  });
+  // ukur dulu (invisible) baru posisi — biar ga ngaco pas pertama muncul.
+  overlay.style.visibility = 'hidden';
+  overlay.setAttribute('data-show', 'true');
+  const r = overlayImg.getBoundingClientRect();
+  const w = overlay.offsetWidth;
+  const h = overlay.offsetHeight;
+  const left = Math.min(Math.max(8, r.left), Math.max(8, window.innerWidth - w - 8));
+  // cukup ruang di atas = nempel atas gambar, kalo mepet status bar taruh bawah.
+  const top = r.top > h + 16 ? r.top - h - 8 : r.bottom + 8;
+  overlay.style.left = `${Math.round(left)}px`;
+  overlay.style.top = `${Math.round(top)}px`;
+  overlay.style.visibility = '';
+}
+
+function showOverlay(img: HTMLImageElement) {
+  overlayImg = img;
+  refreshOverlay();
+}
+
+function hideOverlay() {
+  overlayImg = null;
+  overlay.setAttribute('data-show', 'false');
+}
+
+function selectImage(img: HTMLImageElement) {
+  // timer hold + contextmenu bisa kepanggil berurutan — cukup sekali.
+  const now = Date.now();
+  if (now - lastImageMenuAt < 800) return;
+  lastImageMenuAt = now;
+  try {
+    const pos = editor.view.posAtDOM(img, 0);
+    const $pos = editor.state.doc.resolve(pos);
+    // img = leaf node: posAtDOM bisa di kiri/kanan node-nya, cek dua sisi.
+    let nodePos: number | null = null;
+    if ($pos.nodeAfter?.type.name === 'image') nodePos = pos;
+    else if ($pos.nodeBefore?.type.name === 'image') {
+      nodePos = pos - $pos.nodeBefore.nodeSize;
+    }
+    if (nodePos === null) return;
+    editor.commands.setNodeSelection(nodePos);
+    showOverlay(img);
+  } catch {
+    // dom lagi transisi — abaikan, ulangi hold-nya aja.
+  }
+}
+
+// seleksi pindah dari gambar (tap teks / habis delete / undo) = tutup.
+editor.on('selectionUpdate', () => {
+  if (!overlayImg) return;
+  const { selection } = editor.state;
+  if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+    refreshOverlay();
+    return;
+  }
+  hideOverlay();
+});
+
+window.addEventListener('scroll', () => refreshOverlay(), { passive: true });
+window.addEventListener('resize', () => refreshOverlay(), { passive: true });
+
+editor.view.dom.addEventListener('contextmenu', (e) => {
+  const img = imgFromTarget(e.target);
+  if (!img) return;
+  e.preventDefault();
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+  selectImage(img);
+});
+
+// tap gambar = select + overlay, TANPA keyboard. tap nge-focus editor
+// (itu yang naikin keyboard) — cegat pointerdown khusus sentuhan.
+// select-nya langsung di sini (bukan di click) soalnya preventDefault
+// pointerdown nge-suppress compat mouse events termasuk click.
+// mouse desktop sengaja ga dicegat biar drag & focus biasa tetep jalan.
+editor.view.dom.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  const img = imgFromTarget(e.target);
+  if (!img) return;
+  e.preventDefault();
+  selectImage(img);
+});
+
+editor.view.dom.addEventListener('click', (e) => {
+  const img = imgFromTarget(e.target);
+  if (!img) return;
+  selectImage(img);
+});
+
+let holdTimer: ReturnType<typeof setTimeout> | null = null;
+let holdX = 0;
+let holdY = 0;
+
+editor.view.dom.addEventListener(
+  'touchstart',
+  (e) => {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+    const touch = e.touches[0];
+    if (!touch) return;
+    holdX = touch.clientX;
+    holdY = touch.clientY;
+    const el = document.elementFromPoint(holdX, holdY);
+    const img = imgFromTarget(el);
+    if (!img) return;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      selectImage(img);
+    }, 550);
+  },
+  { passive: true }
+);
+
+const cancelHold = (e: TouchEvent) => {
+  if (!holdTimer) return;
+  const touch = e.touches[0];
+  // jari geser > 10px = niat scroll, bukan hold.
+  if (touch && Math.hypot(touch.clientX - holdX, touch.clientY - holdY) > 10) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+};
+
+editor.view.dom.addEventListener('touchmove', cancelHold, { passive: true });
+editor.view.dom.addEventListener('touchend', () => {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+});
+editor.view.dom.addEventListener('touchcancel', () => {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+});
 
 const titleEl = document.getElementById('title') as HTMLElement;
 
@@ -267,7 +554,41 @@ const commands: Record<string, (...args: unknown[]) => void> = {
       .setImage({ src: src as string })
       .run();
   },
+  deleteImage: () => deleteSelectedImage(),
+  setImageSize: (preset: unknown) => applyImageSize(preset as ImagePreset),
 };
+
+type ImagePreset = 'small' | 'medium' | 'large' | 'original';
+
+function selectedImage(): { nodePos: number } | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') {
+    return null;
+  }
+  return { nodePos: selection.from };
+}
+
+function deleteSelectedImage() {
+  if (selectedImage()) {
+    editor.commands.deleteSelection();
+  }
+}
+
+function applyImageSize(preset: ImagePreset) {
+  if (!selectedImage()) return;
+  // original = lepas attr, balik ke natural size. preset lain = pixel
+  // relatif ke lebar editor — semantik sama kayak resize desktop.
+  if (preset === 'original') {
+    editor.commands.updateAttributes('image', { width: null, height: null });
+    return;
+  }
+  const container = document.getElementById('editor');
+  const containerWidth = container?.clientWidth || editor.view.dom.clientWidth || 0;
+  if (!containerWidth) return;
+  const frac = preset === 'small' ? 1 / 3 : preset === 'medium' ? 2 / 3 : 1;
+  const px = Math.max(120, Math.min(containerWidth, Math.round(containerWidth * frac)));
+  editor.commands.updateAttributes('image', { width: px, height: null });
+}
 
 function applyTheme(cssVars: Record<string, string>, placeholder: string) {
   const root = document.documentElement;

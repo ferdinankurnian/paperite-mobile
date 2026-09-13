@@ -1,4 +1,4 @@
-import { Dimensions } from 'react-native';
+import { Dimensions, View } from 'react-native';
 import { Drawer } from 'expo-router/drawer';
 
 import { AppSidebar } from '@/components/app/AppSidebar';
@@ -10,11 +10,30 @@ const DRAWER_W = Math.min(300, Math.round(SCREEN_W * 0.82));
 const SWIPE_EDGE = SCREEN_W;
 
 export default function DrawerLayout() {
-  const { colors } = useColorScheme();
+  const { colors, isDarkColorScheme } = useColorScheme();
+  // light mode: card (= putih) sama persis kayak background (= putih),
+  // radius drawer ketutup karena ga ada kontras. bikin drawer abu dikit
+  // biar rounded-nya keliatan. dark mode udah kontras (card #171717 vs bg #0a0a0a).
+  const drawerBg = isDarkColorScheme ? colors.card : colors.grey5;
 
   return (
     <Drawer
-      drawerContent={(props) => <AppSidebar navigation={props.navigation} />}
+      drawerContent={(props) => (
+        // wrapper rounded opaque di sini (bukan di drawerStyle): plain View tanpa
+        // elevation jadi overflow hidden + radius kepotong bener di android.
+        // drawerStyle/drawerContentStyle dibikin transparan biar ga ada rect
+        // kotak yang nimpa corner.
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: drawerBg,
+            borderTopRightRadius: 32,
+            borderBottomRightRadius: 32,
+            overflow: 'hidden',
+          }}>
+          <AppSidebar navigation={props.navigation} />
+        </View>
+      )}
       screenOptions={{
         headerShown: false,
         // slide = drawer + content ikut gerak, animasi lebih kerasa
@@ -28,10 +47,16 @@ export default function DrawerLayout() {
         swipeMinVelocity: 200,
         drawerStyle: {
           width: DRAWER_W,
-          backgroundColor: colors.card,
+          backgroundColor: 'transparent',
           borderTopRightRadius: 32,
           borderBottomRightRadius: 32,
           overflow: 'hidden',
+        },
+        drawerContentStyle: {
+          backgroundColor: 'transparent',
+        },
+        sceneContainerStyle: {
+          backgroundColor: colors.background,
         },
         overlayColor: 'rgba(0,0,0,0.4)',
       }}>

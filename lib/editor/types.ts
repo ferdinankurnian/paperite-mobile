@@ -48,6 +48,8 @@ export const EMPTY_EDITOR_STATE: EditorActiveState = {
   canRedo: false,
 };
 
+export type ImageSizePreset = 'small' | 'medium' | 'large' | 'original';
+
 export type MobileEditor = {
   focus: (pos?: 'start' | 'end') => void;
   focusTitle: () => void;
@@ -79,4 +81,6 @@ export type MobileEditor = {
   unsetHighlight: () => void;
   setLink: (url: string | null) => void;
   setImage: (src: string) => void;
+  deleteImage: () => void;
+  setImageSize: (preset: ImageSizePreset) => void;
 };

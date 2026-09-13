@@ -16,6 +16,7 @@ import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 
 import { ThemeToggle } from '@/components/nativewindui/ThemeToggle';
+import { EditorPrewarm } from '@/components/app/EditorPrewarm';
 import { SpaceProvider } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { NAV_THEME } from '@/theme';
@@ -103,13 +104,6 @@ export default function RootLayout() {
                         }}
                       />
                       <JsStack.Screen
-                        name="note/new"
-                        options={{
-                          presentation: 'card',
-                          ...TransitionPresets.SlideFromRightIOS,
-                        }}
-                      />
-                      <JsStack.Screen
                         name="settings/[section]"
                         options={{
                           presentation: 'card',
@@ -120,6 +114,9 @@ export default function RootLayout() {
                       <JsStack.Screen name="modal" options={MODAL_OPTIONS} />
                     </JsStack>
                   </NavThemeProvider>
+                  {/* pemanas mesin editor: nyala sekali pas app dibuka,
+                      ga megang isi note jadi aman dari ketabrak. */}
+                  <EditorPrewarm />
                   <PortalHost />
                 </>
               </ActionSheetProvider>

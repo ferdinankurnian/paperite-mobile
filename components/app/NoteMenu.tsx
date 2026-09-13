@@ -6,11 +6,13 @@ import type { MobileEditor } from '@/lib/editor/types';
 import { ToolbarMenu, type ToolbarMenuEntry } from '@/components/ui/ToolbarMenu';
 import { formatNoteDate, type Note } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
-import { deleteNoteToTrash } from '@/lib/storage';
+import { deleteNoteToTrash, ensureStorageReady, setNotePinned } from '@/lib/storage';
 
 type NoteMenuProps = {
   note: Note;
   getEditor: () => MobileEditor | null;
+  /** dipanggil habis pin toggle sukses biar screen bisa update state lokal. */
+  onPinnedChange?: (pinned: boolean) => void;
 };
 
 /**
@@ -25,7 +27,7 @@ type NoteMenuProps = {
  *   file share, editor search) di-disabled dulu, bukan fake handler.
  *   cari TODO(ID) di bawah buat tau apa yang kurang.
  */
-export function NoteMenu({ note, getEditor }: NoteMenuProps) {
+export function NoteMenu({ note, getEditor, onPinnedChange }: NoteMenuProps) {
   const { spaces } = useSpace();
   const space = spaces.find((s) => s.id === note.spaceId);
 
@@ -65,8 +67,21 @@ export function NoteMenu({ note, getEditor }: NoteMenuProps) {
     }
   };
 
+  const togglePin = async () => {
+    try {
+      await ensureStorageReady();
+      const updated = await setNotePinned(note.id, !note.pinned);
+      if (updated) onPinnedChange?.(updated.pinned);
+      else Alert.alert('gagal pin', 'coba lagi.');
+    } catch {
+      Alert.alert('gagal pin', 'coba lagi.');
+    }
+  };
+
   const entries: ToolbarMenuEntry[] = [
     { title: 'Note Info', icon: 'info', onPress: showInfo },
+    // 1:1 desktop sidebar: Pin/Unpin note (scope per parent folder).
+    { title: note.pinned ? 'Unpin' : 'Pin to top', icon: 'push_pin', onPress: togglePin },
     // TODO(mobile-store): note setup (line height / spacing / indent) — butuh
     // settings section + persist, desktop ada di settings-dialog "Note".
     { title: 'Note setup...', disabled: true },

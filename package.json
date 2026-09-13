@@ -10,7 +10,7 @@
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
     "web": "expo start --web",
-    "postinstall": "node -e \"const fs=require('fs');const p='node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js';if(!fs.existsSync(p))process.exit(0);let s=fs.readFileSync(p,'utf8');if(s.includes('stiffness: 280')){console.log('[drawer-spring] ok');process.exit(0)}const a='stiffness: 1000,\\n      damping: 500,\\n      mass: 3,\\n      overshootClamping: true';const b='stiffness: 280,\\n      damping: 32,\\n      mass: 1,\\n      overshootClamping: false';if(!s.includes(a)){console.warn('[drawer-spring] skip');process.exit(0)}fs.writeFileSync(p,s.replace(a,b));console.log('[drawer-spring] patched')\" && node scripts/patch-expo-router-interaction-manager.cjs"
+    "postinstall": "node -e \"const fs=require('fs');const p='node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js';if(!fs.existsSync(p))process.exit(0);let s=fs.readFileSync(p,'utf8');if(s.includes('stiffness: 280')){console.log('[drawer-spring] ok');process.exit(0)}const a='stiffness: 1000,\\n      damping: 500,\\n      mass: 3,\\n      overshootClamping: true';const b='stiffness: 280,\\n      damping: 32,\\n      mass: 1,\\n      overshootClamping: false';if(!s.includes(a)){console.warn('[drawer-spring] skip');process.exit(0)}fs.writeFileSync(p,s.replace(a,b));console.log('[drawer-spring] patched')\" && node scripts/patch-expo-router-interaction-manager.cjs && node scripts/patch-webview-receive-content.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/courgette": "^0.4.1",
@@ -42,6 +42,7 @@
     "expo-file-system": "~56.0.11",
     "expo-font": "~56.0.5",
     "expo-haptics": "~56.0.3",
+    "expo-image-picker": "~56.0.25",
     "expo-linking": "~56.0.11",
     "expo-router": "~56.2.6",
     "expo-splash-screen": "~56.0.10",

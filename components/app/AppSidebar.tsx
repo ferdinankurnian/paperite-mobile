@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Space, type SpaceId } from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
 import { SpaceIcon } from '@/lib/space-icons';
+import { INBOX_ID, TRASH_ID } from '@/lib/storage/files';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 import { CreateSpaceSheet } from './CreateSpaceSheet';
@@ -31,7 +32,9 @@ function SpaceRow({
   onPress: () => void;
 }) {
   const { colors, isDarkColorScheme } = useColorScheme();
-  const activeBackground = isDarkColorScheme ? colors.secondary : colors.muted;
+  // drawer abu di light mode (match drawerStyle) — active row jadi putih biar keliatan.
+  // dark mode drawer = card, active = secondary (udah kontras).
+  const activeBackground = isDarkColorScheme ? colors.secondary : colors.card;
   const tint = space.color ?? (active ? colors.secondaryForeground : colors.foreground);
 
   return (
@@ -67,15 +70,15 @@ function SpaceRow({
 }
 
 export function AppSidebar({ navigation }: Props) {
-  const { colors } = useColorScheme();
+  const { colors, isDarkColorScheme } = useColorScheme();
   const { activeSpaceId, setActiveSpaceId, spaces } = useSpace();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const sheetRef = React.useRef<BottomSheetModal>(null);
 
-  const systemTop = spaces.filter((s) => s.id === 'inbox');
+  const systemTop = spaces.filter((s) => s.id === INBOX_ID);
   const userSpaces = spaces.filter((s) => s.kind === 'space');
-  const systemBottom = spaces.filter((s) => s.id === 'trash');
+  const systemBottom = spaces.filter((s) => s.id === TRASH_ID);
 
   function selectSpace(id: SpaceId) {
     setActiveSpaceId(id);
@@ -89,6 +92,8 @@ export function AppSidebar({ navigation }: Props) {
   const onSettings = pathname === '/settings' || pathname.startsWith('/settings/');
   // lagi di settings: space rows jangan active biar ga double highlight
   const isSpaceActive = (id: SpaceId) => !onSettings && activeSpaceId === id;
+  // drawer abu di light (lihat wrapper di drawerContent) — active row putih biar kontras
+  const activeBg = isDarkColorScheme ? colors.secondary : colors.card;
 
   return (
     <>
@@ -98,97 +103,106 @@ export function AppSidebar({ navigation }: Props) {
           paddingTop: insets.top + 8,
           paddingBottom: insets.bottom + 8,
         }}
-        style={{ backgroundColor: colors.card }}>
-      <View className="mb-4 px-4 pt-2">
-        <PaperText
-          variant="headlineSmall"
-          style={{ color: colors.primary, fontFamily: 'Courgette_400Regular', marginLeft: 6, fontSize: 30 }}>
-          Paperite
-        </PaperText>
-      </View>
-
-      {systemTop.map((space) => (
-        <SpaceRow
-          key={space.id}
-          space={space}
-          active={isSpaceActive(space.id)}
-          onPress={() => selectSpace(space.id)}
-        />
-      ))}
-
-      <View className="mx-4 my-2 h-px" style={{ backgroundColor: colors.border }} />
-
-      {userSpaces.map((space) => (
-        <SpaceRow
-          key={space.id}
-          space={space}
-          active={isSpaceActive(space.id)}
-          onPress={() => selectSpace(space.id)}
-        />
-      ))}
-
-      <View className="mx-2 mt-1 overflow-hidden rounded-xl">
-        <Pressable
-          onPress={() => sheetRef.current?.present()}
-          className="flex-row items-center gap-3 px-3 py-2.5"
-          android_ripple={{
-            color: withOpacity(colors.foreground, 0.14),
-            borderless: false,
-          }}
-          style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
-          <MaterialSymbol name="add" size={26} color={colors.mutedForeground} />
-          <PaperText variant="bodyLarge" style={{ color: colors.mutedForeground }}>
-            Add Space
-          </PaperText>
-        </Pressable>
-      </View>
-
-      <View className="flex-1" />
-
-      <View className="mx-4 my-3 h-px" style={{ backgroundColor: colors.border }} />
-
-      {systemBottom.map((space) => (
-        <SpaceRow
-          key={space.id}
-          space={space}
-          active={isSpaceActive(space.id)}
-          onPress={() => selectSpace(space.id)}
-        />
-      ))}
-
-      <View
-        className="mx-2 mb-4 overflow-hidden rounded-xl"
-        style={{
-          backgroundColor: onSettings ? colors.secondary : 'transparent',
-          borderWidth: 1,
-          borderColor: onSettings ? withOpacity(colors.foreground, 0.1) : 'transparent',
-        }}>
-        <Pressable
-          onPress={() => {
-            navigation.closeDrawer();
-            router.push('/settings');
-          }}
-          className="flex-row items-center gap-3 px-3 py-2.5"
-          android_ripple={{
-            color: withOpacity(colors.foreground, 0.14),
-            borderless: false,
-          }}
-          style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
-          <MaterialSymbol
-            name="settings"
-            size={26}
-            color={onSettings ? colors.secondaryForeground : colors.foreground}
-          />
+        // transparan: yang ngecat abu + rounded itu wrapper di drawerContent
+        // (bg + radius di view yang sama selalu kepotong bener, tanpa butuh
+        // overflow hidden yang gagal di android karena transform drawer).
+        // kalau ScrollView opaque di sini, rect kotaknya nutupin corner.
+        style={{ backgroundColor: 'transparent' }}>
+        <View className="mb-4 px-4 pt-2">
           <PaperText
-            variant="bodyLarge"
+            variant="headlineSmall"
             style={{
-              color: onSettings ? colors.secondaryForeground : colors.foreground,
-              fontWeight: onSettings ? '600' : '400',
+              color: colors.primary,
+              fontFamily: 'Courgette_400Regular',
+              marginLeft: 6,
+              fontSize: 30,
             }}>
-            Settings
+            Paperite
           </PaperText>
-        </Pressable>
-      </View>
+        </View>
+
+        {systemTop.map((space) => (
+          <SpaceRow
+            key={space.id}
+            space={space}
+            active={isSpaceActive(space.id)}
+            onPress={() => selectSpace(space.id)}
+          />
+        ))}
+
+        <View className="mx-4 my-2 h-px" style={{ backgroundColor: colors.border }} />
+
+        {userSpaces.map((space) => (
+          <SpaceRow
+            key={space.id}
+            space={space}
+            active={isSpaceActive(space.id)}
+            onPress={() => selectSpace(space.id)}
+          />
+        ))}
+
+        <View className="mx-2 mt-1 overflow-hidden rounded-xl">
+          <Pressable
+            onPress={() => sheetRef.current?.present()}
+            className="flex-row items-center gap-3 px-3 py-2.5"
+            android_ripple={{
+              color: withOpacity(colors.foreground, 0.14),
+              borderless: false,
+            }}
+            style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
+            <MaterialSymbol name="add" size={26} color={colors.mutedForeground} />
+            <PaperText variant="bodyLarge" style={{ color: colors.mutedForeground }}>
+              Add Space
+            </PaperText>
+          </Pressable>
+        </View>
+
+        <View className="flex-1" />
+
+        <View className="mx-4 my-3 h-px" style={{ backgroundColor: colors.border }} />
+
+        {systemBottom.map((space) => (
+          <SpaceRow
+            key={space.id}
+            space={space}
+            active={isSpaceActive(space.id)}
+            onPress={() => selectSpace(space.id)}
+          />
+        ))}
+
+        <View
+          className="mx-2 mb-4 overflow-hidden rounded-xl"
+          style={{
+            backgroundColor: onSettings ? activeBg : 'transparent',
+            borderWidth: 1,
+            borderColor: onSettings ? withOpacity(colors.foreground, 0.1) : 'transparent',
+          }}>
+          <Pressable
+            onPress={() => {
+              navigation.closeDrawer();
+              router.push('/settings');
+            }}
+            className="flex-row items-center gap-3 px-3 py-2.5"
+            android_ripple={{
+              color: withOpacity(colors.foreground, 0.14),
+              borderless: false,
+            }}
+            style={({ pressed }) => [pressed && { opacity: 0.78 }]}>
+            <MaterialSymbol
+              name="settings"
+              size={26}
+              color={onSettings ? colors.secondaryForeground : colors.foreground}
+            />
+            <PaperText
+              variant="bodyLarge"
+              style={{
+                color: onSettings ? colors.secondaryForeground : colors.foreground,
+                fontWeight: onSettings ? '600' : '400',
+              }}>
+              Settings
+            </PaperText>
+          </Pressable>
+        </View>
       </ScrollView>
       <CreateSpaceSheet sheetRef={sheetRef} onCreated={() => navigation.closeDrawer()} />
     </>

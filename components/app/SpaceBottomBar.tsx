@@ -8,6 +8,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { ToolbarItem } from '@/components/ui/Toolbar';
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
 import { SearchBar } from '@/components/ui/SearchBar';
+import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 type Props = {
@@ -15,10 +16,18 @@ type Props = {
   onSearchChange: (text: string) => void;
   showNewFolder?: boolean;
   showAdd?: boolean;
+  onNewFolder?: () => void;
 };
 
-export function SpaceBottomBar({ search, onSearchChange, showNewFolder = false, showAdd = true }: Props) {
+export function SpaceBottomBar({
+  search,
+  onSearchChange,
+  showNewFolder = false,
+  showAdd = true,
+  onNewFolder,
+}: Props) {
   const { colors, isDarkColorScheme } = useColorScheme();
+  const { activeSpaceId } = useSpace();
   const insets = useSafeAreaInsets();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const fabBorderColor = isDarkColorScheme ? 'rgb(255, 170, 30)' : 'rgb(194, 58, 80)';
@@ -71,9 +80,7 @@ export function SpaceBottomBar({ search, onSearchChange, showNewFolder = false, 
         {showNewFolder ? (
           <View style={{ alignItems: 'flex-end', paddingRight: 4 }}>
             <ToolbarItem
-              onPress={() => {
-                // placeholder — folder create nanti
-              }}
+              onPress={onNewFolder}
               accessibilityLabel="New folder"
               icon="create_new_folder"
               iconSize={26}
@@ -97,17 +104,18 @@ export function SpaceBottomBar({ search, onSearchChange, showNewFolder = false, 
 
           {showAdd ? (
             <ToolbarItem
-              onPress={() => router.push('/note/new')}
+              onPress={() =>
+                router.push({
+                  pathname: '/note/[id]',
+                  params: { id: 'new', spaceId: activeSpaceId },
+                })
+              }
               accessibilityLabel="New note"
               style={{
                 backgroundColor: colors.primary,
                 borderColor: fabBorderColor,
               }}>
-              <MaterialSymbol
-                name="edit_square"
-                size={26}
-                color={colors.primaryForeground}
-              />
+              <MaterialSymbol name="edit_square" size={26} color={colors.primaryForeground} />
             </ToolbarItem>
           ) : null}
         </View>

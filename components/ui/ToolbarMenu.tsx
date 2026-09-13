@@ -60,6 +60,8 @@ type ToolbarMenuProps = {
   entries?: ToolbarMenuEntry[];
   actions?: ToolbarMenuAction[];
   accessibilityLabel?: string;
+  /** true kalo trigger duduk di dalem ToolbarGroup: tanpa border/shadow sendiri. */
+  grouped?: boolean;
 };
 
 const MENU_WIDTH = 224;
@@ -86,8 +88,9 @@ export function ToolbarMenu({
   entries,
   actions,
   accessibilityLabel = 'More options',
+  grouped = false,
 }: ToolbarMenuProps) {
-  const { colors } = useColorScheme();
+  const { colors, isDarkColorScheme } = useColorScheme();
   const triggerRef = useRef<View>(null);
   const [origin, setOrigin] = useState<MenuOrigin>('right');
   const [phase, setPhase] = useState<MenuPhase>('closed');
@@ -236,15 +239,10 @@ export function ToolbarMenu({
     padding: MENU_PADDING,
     gap: 2,
     overflow: 'hidden',
-    // shadow ios + elevation android, biar floating kayak toolbar
-    elevation: 8,
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    // tanpa shadow/elevation — flat ngikutin border doang
     width: MENU_WIDTH,
     backgroundColor: colors.card,
     borderColor: withOpacity(colors.border, 0.9),
-    shadowColor: '#000',
   };
   // kartu flyout submenu: gaya sama kayak menu, cuma lebih ramping + posisi
   // diatur wrapper di bawah (top/left), bukan di sini.
@@ -266,8 +264,9 @@ export function ToolbarMenu({
       <DropdownMenuPrimitive.Trigger asChild>
         <ToolbarItem
           ref={triggerRef}
-          hitSlop={12}
+          hitSlop={grouped ? 4 : 12}
           icon="more_vert"
+          grouped={grouped}
           accessibilityLabel={accessibilityLabel}
         />
       </DropdownMenuPrimitive.Trigger>
@@ -373,6 +372,19 @@ export function ToolbarMenu({
                 }
                 return renderItemRow(entry, entry.accessibilityLabel ?? entry.title);
               })}
+              {/* dim khusus kartu parent pas flyout kebuka (backdrop fullscreen
+                  udah dicabut) — nempel di dalem container jadi ikut scale.
+                  opacity ngikutin tema: light mode lebih tipis biar nggak
+                  jadi abu kotor. */}
+              {openSubEntry ? (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.menuDim,
+                    { backgroundColor: withOpacity('#000000', isDarkColorScheme ? 0.45 : 0.18) },
+                  ]}
+                />
+              ) : null}
             </AnimatedMenuContent>
           ) : null}
           {/* flyout submenu ala ChatGPT: kartu terpisah numpang di atas parent
@@ -380,7 +392,6 @@ export function ToolbarMenu({
               jalanin action + tutup semua. */}
           {openSubEntry ? (
             <>
-              <View pointerEvents="none" style={styles.subDim} />
               <Pressable
                 accessible={false}
                 onPress={closeSubmenu}
@@ -642,9 +653,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
-  // dim di belakang kartu flyout submenu (kayak ChatGPT): parent menu
-  // keliatan redup, kartu submenu yang nyala.
-  subDim: {
+  // dim di DALEM kartu parent pas flyout kebuka: cuma parent yang redup,
+  // backdrop di luar menu tetep terang. parent udah overflow:hidden jadi
+  // kepotong ngikutin rounded-nya sendiri. warna dasar di-override inline
+  // ngikutin tema (lihat pemakaian styles.menuDim).
+  menuDim: {
     position: 'absolute',
     left: 0,
     right: 0,

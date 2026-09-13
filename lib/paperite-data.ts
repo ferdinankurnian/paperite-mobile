@@ -16,10 +16,16 @@ export type Space = {
 export type Note = {
   id: string;
   spaceId: SpaceId;
+  /** path posix penuh di workspace, 1:1 desktop: "Riset/Meeting/<uuid>". */
+  path: string;
+  /** parent posix: space ("Riset") atau folder ("Riset/Meeting"). */
+  parentPath: string;
   title: string;
   preview: string;
   body: string;
   updatedAt: number;
+  /** 1:1 desktop (plan 007): pinned float ke atas dalam parent folder-nya aja. */
+  pinned: boolean;
 };
 
 /** note + isi TipTap JSON asli (1:1 sama desktop) — cuma ada pas buka note,
@@ -27,6 +33,22 @@ export type Note = {
 export type NoteWithContent = Note & {
   content: Record<string, unknown>[];
 };
+
+/** tree isi space, 1:1 sama WorkspaceItem desktop (folder rekursif). */
+export type WorkspaceNoteItem = {
+  type: 'note';
+  path: string;
+  note: Note;
+};
+
+export type WorkspaceFolder = {
+  type: 'folder';
+  title: string;
+  path: string;
+  children: WorkspaceItem[];
+};
+
+export type WorkspaceItem = WorkspaceNoteItem | WorkspaceFolder;
 
 export function formatNoteDate(updatedAt: number): string {
   try {

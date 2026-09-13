@@ -6,12 +6,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { MobileEditor } from '@/lib/editor/types';
 
-import { ToolbarItem, ToolbarItemGroup } from '@/components/ui/Toolbar';
+import {
+  ToolbarItem,
+  ToolbarItemGroup,
+  ToolbarGroup,
+  ToolbarSeparator,
+} from '@/components/ui/Toolbar';
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
+import { SaveStatusText, type SaveStatus } from '@/components/app/SaveStatusText';
 import { SpaceIcon } from '@/lib/space-icons';
 import { ToolbarMenu } from '@/components/ui/ToolbarMenu';
 import { NoteMenu } from '@/components/app/NoteMenu';
+import { useListActions } from '@/lib/list-actions';
 import { useSpace } from '@/lib/SpaceContext';
+import { useSelection } from '@/lib/selection';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 import type { Note } from '@/lib/paperite-data';
@@ -29,6 +37,10 @@ type AppHeaderProps = {
   /** editor variant: note + bridge buat NoteMenu (parity dropdown desktop) */
   note?: Note;
   getEditor?: () => MobileEditor | null;
+  /** editor variant: pin toggle dari NoteMenu → screen update state lokal */
+  onPinnedChange?: (pinned: boolean) => void;
+  /** editor variant: status autosave, tampil di sebelah back button */
+  saveStatus?: SaveStatus;
 };
 
 export function AppHeader({
@@ -39,11 +51,25 @@ export function AppHeader({
   title,
   note,
   getEditor,
+  onPinnedChange,
+  saveStatus = 'idle',
 }: AppHeaderProps) {
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { activeSpace, activeSpaceName } = useSpace();
+  const {
+    selecting,
+    selectedCount,
+    selectedIds,
+    allIds,
+    toggleSelectAll,
+    enterSelection,
+    exitSelection,
+  } = useSelection();
+  const { bulkDelete, requestMove } = useListActions();
+  const isSpaceSelecting = variant === 'space' && selecting;
+  const allSelected = allIds.length > 0 && selectedCount >= allIds.length;
   const iconColor = activeSpace?.color ?? colors.foreground;
   const [size, setSize] = useState({ w: 0, h: 0 });
   const floatingSurface = {
@@ -99,18 +125,57 @@ export function AppHeader({
             paddingRight: 8,
             minWidth: 0,
           }}>
-          <ToolbarItem
-            onPress={onLeftPress ?? (() => navigation.dispatch(DrawerActions.openDrawer()))}
-            accessibilityLabel={showBack ? 'Back' : 'Open drawer'}
-            icon={showBack ? 'arrow_back_ios_new' : undefined}
-            iconSize={26}
-            hitSlop={12}>
-            {showBack ? null : (
-              <MaterialSymbol name="dock_to_right" size={26} color={colors.foreground} />
-            )}
-          </ToolbarItem>
+          {isSpaceSelecting ? (
+            <ToolbarItem
+              onPress={exitSelection}
+              accessibilityLabel="Exit selection"
+              icon="close"
+              iconSize={26}
+              hitSlop={12}
+            />
+          ) : (
+            <ToolbarItem
+              onPress={onLeftPress ?? (() => navigation.dispatch(DrawerActions.openDrawer()))}
+              accessibilityLabel={showBack ? 'Back' : 'Open drawer'}
+              icon={showBack ? 'arrow_back_ios_new' : undefined}
+              iconSize={26}
+              hitSlop={12}>
+              {showBack ? null : (
+                <MaterialSymbol name="dock_to_right" size={26} color={colors.foreground} />
+              )}
+            </ToolbarItem>
+          )}
 
-          {isEditor ? null : isDetail ? (
+          {isEditor ? (
+            <SaveStatusText status={saveStatus} />
+          ) : isSpaceSelecting ? (
+            <View
+              style={{
+                ...floatingSurface,
+                height: 48,
+                maxWidth: '100%',
+                paddingHorizontal: 16,
+                borderRadius: 24,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                flexShrink: 1,
+                minWidth: 0,
+              }}>
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontSize: 17,
+                  fontWeight: '600',
+                  flexShrink: 1,
+                  minWidth: 0,
+                }}
+                numberOfLines={1}>
+                {selectedCount > 0 ? `${selectedCount} selected` : 'Select notes'}
+              </Text>
+            </View>
+          ) : isDetail ? (
             <View
               style={{
                 ...floatingSurface,
@@ -216,31 +281,77 @@ export function AppHeader({
 
           {isEditor ? (
             note && getEditor ? (
-              <NoteMenu note={note} getEditor={getEditor} />
+              <NoteMenu note={note} getEditor={getEditor} onPinnedChange={onPinnedChange} />
             ) : null
-          ) : isSettings || isDetail ? null : (
-            <ToolbarMenu
-              actions={[
-                {
-                  title: 'Rename',
-                  icon: 'edit',
-                  accessibilityLabel: 'Rename',
-                  onPress: () => {},
-                },
-                {
-                  title: 'Sort',
-                  icon: 'sort',
-                  accessibilityLabel: 'Sort',
-                  onPress: () => {},
-                },
-                {
-                  title: 'Select',
-                  icon: 'check_box',
-                  accessibilityLabel: 'Select',
-                  onPress: () => {},
-                },
-              ]}
-            />
+          ) : isSettings || isDetail ? null : isSpaceSelecting ? (
+            <ToolbarGroup accessibilityLabel="Selection actions">
+              <ToolbarItem
+                grouped
+                hitSlop={4}
+                icon={allSelected ? 'deselect' : 'select_all'}
+                iconSize={26}
+                accessibilityLabel={allSelected ? 'Deselect all' : 'Select all'}
+                onPress={toggleSelectAll}
+              />
+              <ToolbarSeparator />
+              <ToolbarMenu
+                grouped
+                accessibilityLabel="Bulk actions"
+                actions={[
+                  {
+                    title: 'Delete',
+                    icon: 'delete',
+                    accessibilityLabel: 'Delete selected',
+                    onPress: () => {
+                      bulkDelete(selectedIds);
+                    },
+                  },
+                  {
+                    title: 'Move',
+                    icon: 'drive_file_move',
+                    accessibilityLabel: 'Move selected',
+                    onPress: () => {
+                      requestMove(selectedIds.map((id) => ({ path: id, title: id })));
+                    },
+                  },
+                ]}
+              />
+            </ToolbarGroup>
+          ) : (
+            <ToolbarGroup accessibilityLabel="List actions">
+              <ToolbarItem
+                grouped
+                hitSlop={4}
+                icon="check_box"
+                iconSize={26}
+                accessibilityLabel="Select notes"
+                onPress={() => enterSelection()}
+              />
+              <ToolbarSeparator />
+              <ToolbarMenu
+                grouped
+                actions={[
+                  {
+                    title: 'Rename',
+                    icon: 'edit',
+                    accessibilityLabel: 'Rename',
+                    onPress: () => {},
+                  },
+                  {
+                    title: 'Sort',
+                    icon: 'sort',
+                    accessibilityLabel: 'Sort',
+                    onPress: () => {},
+                  },
+                  {
+                    title: 'Select',
+                    icon: 'check_box',
+                    accessibilityLabel: 'Select',
+                    onPress: () => enterSelection(),
+                  },
+                ]}
+              />
+            </ToolbarGroup>
           )}
         </View>
       </View>

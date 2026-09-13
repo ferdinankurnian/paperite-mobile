@@ -4,6 +4,7 @@ import * as React from 'react';
 import { type Space, type SpaceId } from '@/lib/paperite-data';
 import { SPACE_COLORS } from '@/lib/space-options';
 import { addSpaceFolder, ensureStorageReady, listSpaces } from '@/lib/storage';
+import { INBOX_ID } from '@/lib/storage/files';
 
 const ACTIVE_SPACE_KEY = 'paperite:active-space';
 
@@ -22,7 +23,7 @@ const SpaceContext = React.createContext<SpaceContextValue | null>(null);
 
 export function SpaceProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = React.useState(false);
-  const [activeSpaceId, setActiveSpaceIdState] = React.useState<SpaceId>('inbox');
+  const [activeSpaceId, setActiveSpaceIdState] = React.useState<SpaceId>(INBOX_ID);
   const [spaces, setSpaces] = React.useState<Space[]>([]);
 
   const refreshSpaces = React.useCallback(async () => {
@@ -36,10 +37,12 @@ export function SpaceProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       const loaded = await refreshSpaces();
       const saved = await AsyncStorage.getItem(ACTIVE_SPACE_KEY).catch(() => null);
-      if (saved && loaded.some((s) => s.id === saved)) {
-        setActiveSpaceIdState(saved);
+      // remap id lama lowercase (pre-folder) ke kapital 1:1 desktop
+      const remapped = saved === 'inbox' ? INBOX_ID : saved === 'trash' ? 'Trash' : saved;
+      if (remapped && loaded.some((s) => s.id === remapped)) {
+        setActiveSpaceIdState(remapped);
       } else {
-        setActiveSpaceIdState(loaded[0]?.id ?? 'inbox');
+        setActiveSpaceIdState(loaded[0]?.id ?? INBOX_ID);
       }
       setReady(true);
     })();
@@ -75,7 +78,16 @@ export function SpaceProvider({ children }: { children: React.ReactNode }) {
       addSpace,
       refreshSpaces,
     }),
-    [ready, activeSpaceId, setActiveSpaceId, activeSpaceName, activeSpace, spaces, addSpace, refreshSpaces]
+    [
+      ready,
+      activeSpaceId,
+      setActiveSpaceId,
+      activeSpaceName,
+      activeSpace,
+      spaces,
+      addSpace,
+      refreshSpaces,
+    ]
   );
 
   return <SpaceContext.Provider value={value}>{children}</SpaceContext.Provider>;

@@ -122,11 +122,16 @@ export type ToolbarItemGroupProps = {
   accessibilityLabel?: string;
 };
 
-export function ToolbarItemGroup({
-  actions,
+/** Container pill generik — buat grup campuran (mis. ToolbarItem + ToolbarMenu trigger). */
+export function ToolbarGroup({
+  children,
   style,
   accessibilityLabel = 'Actions',
-}: ToolbarItemGroupProps) {
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+}) {
   const { colors } = useColorScheme();
 
   return (
@@ -141,17 +146,30 @@ export function ToolbarItemGroup({
         },
         style,
       ]}>
+      {children}
+    </View>
+  );
+}
+
+export function ToolbarSeparator() {
+  const { colors } = useColorScheme();
+  return <View style={[styles.separator, { backgroundColor: withOpacity(colors.border, 0.9) }]} />;
+}
+
+export function ToolbarItemGroup({
+  actions,
+  style,
+  accessibilityLabel = 'Actions',
+}: ToolbarItemGroupProps) {
+  return (
+    <ToolbarGroup style={style} accessibilityLabel={accessibilityLabel}>
       {actions.map((action, index) => (
         <Fragment key={action.testID ?? action.accessibilityLabel}>
           <ToolbarItem {...action} grouped hitSlop={4} />
-          {index < actions.length - 1 ? (
-            <View
-              style={[styles.separator, { backgroundColor: withOpacity(colors.border, 0.9) }]}
-            />
-          ) : null}
+          {index < actions.length - 1 ? <ToolbarSeparator /> : null}
         </Fragment>
       ))}
-    </View>
+    </ToolbarGroup>
   );
 }
 

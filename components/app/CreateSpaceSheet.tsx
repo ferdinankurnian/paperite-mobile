@@ -16,26 +16,13 @@ import { SPACE_COLORS, SPACE_SYMBOLS } from '@/lib/space-options';
 import { useSpace } from '@/lib/SpaceContext';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
+import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
+import { ToolbarItem } from '@/components/ui/Toolbar';
 
 type Props = {
   sheetRef: React.RefObject<BottomSheetModal | null>;
   onCreated?: () => void;
 };
-
-function SymbolIcon({ name, size, color }: { name: string; size: number; color: string }) {
-  return (
-    <Text
-      style={{
-        fontFamily: 'MaterialSymbols_400Regular',
-        fontSize: size,
-        lineHeight: size,
-        color,
-        includeFontPadding: false,
-      }}>
-      {name}
-    </Text>
-  );
-}
 
 // memo: ketik nama / ganti tab ga ikut re-render 42 cell
 const SymbolCell = React.memo(function SymbolCell({
@@ -62,7 +49,7 @@ const SymbolCell = React.memo(function SymbolCell({
           justifyContent: 'center',
           backgroundColor: selected ? withOpacity(selectedColor, 0.18) : 'transparent',
         }}>
-        <SymbolIcon name={name} size={28} color={selected ? selectedColor : normalColor} />
+        <MaterialSymbol name={name} size={28} color={selected ? selectedColor : normalColor} />
       </Pressable>
     </View>
   );
@@ -143,6 +130,10 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
     onCreated?.();
   }, [name, icon, color, addSpace, sheetRef, onCreated]);
 
+  const handleClose = React.useCallback(() => {
+    sheetRef.current?.dismiss();
+  }, [sheetRef]);
+
   const handleSheetChange = React.useCallback((index: number) => {
     if (index >= 0) setGridReady(true);
   }, []);
@@ -197,8 +188,8 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
       android_keyboardInputMode="adjustResize"
       backdropComponent={SheetBackdrop}
       footerComponent={renderFooter}
+      handleComponent={null}
       onChange={handleSheetChange}
-      handleIndicatorStyle={{ backgroundColor: colors.mutedForeground, width: 40 }}
       backgroundStyle={{ backgroundColor: colors.card }}
       style={{ overflow: 'hidden', borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
       <BottomSheetScrollView
@@ -206,7 +197,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 150 }}
         keyboardShouldPersistTaps="handled">
-        {/* sticky top: preview + name + segmented */}
+        {/* sticky top: toolbar + preview + name + segmented */}
         <View
           style={{
             backgroundColor: colors.card,
@@ -214,6 +205,25 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
             paddingTop: 16,
             paddingBottom: 16,
           }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 8,
+            }}>
+            <ToolbarItem
+              icon="close"
+              accessibilityLabel="Close"
+              onPress={handleClose}
+            />
+            <ToolbarItem
+              icon="check"
+              accessibilityLabel="Done"
+              onPress={handleCreate}
+              disabled={!canCreate}
+            />
+          </View>
           <View style={{ alignItems: 'center', paddingVertical: 8 }}>
             <View
               style={{
@@ -222,7 +232,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-              <SymbolIcon name={icon} size={64} color={color} />
+              <MaterialSymbol name={icon} size={64} color={color} />
             </View>
           </View>
 
@@ -332,7 +342,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
                 alignItems: 'center',
                 gap: 6,
               }}>
-              <SymbolIcon name="upload" size={28} color={colors.mutedForeground} />
+              <MaterialSymbol name="upload" size={28} color={colors.mutedForeground} />
               <PaperText variant="bodyMedium" style={{ color: colors.mutedForeground }}>
                 custom icon upload nyusul
               </PaperText>
