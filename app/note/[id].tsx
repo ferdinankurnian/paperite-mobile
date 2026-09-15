@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Stack as JsStack } from 'expo-router/js-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, TextInput, View } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -67,6 +67,12 @@ export default function NoteEditorScreen() {
   const [createdId, setCreatedId] = useState<string | null>(null);
   const createdIdRef = useRef<string | null>(null);
   const creatingRef = useRef<Promise<string | null> | null>(null);
+  // jembatan keyboard mode new: webview ga bisa summon keyboard sendiri
+  // (js focus jalan, keyboard engga — issue android webview). jadi pasang
+  // TextInput invisible autoFocus biar keyboard naik via jalur native,
+  // terus fokus dipindahin ke tiptap pas editor ready.
+  const [bridgeActive, setBridgeActive] = useState(isNew);
+  const focusTransferredRef = useRef(false);
 
   useEffect(() => {
     titleRef.current = title;
@@ -341,6 +347,20 @@ export default function NoteEditorScreen() {
 
   const handleEditorReady = (editor: MobileEditor) => {
     editorRef.current = editor;
+    // mode new: keyboard (udah naik via bridge native) dipindahin ke tiptap.
+    // urutan penting: fokus JS dulu (kursor masuk editor) → fokus native
+    // (sistem mindahin input connection, keyboard ketahan) → cabut bridge
+    // TANPA blur() eksplisit (blur = hide keyboard paksa).
+    if (isNew && !focusTransferredRef.current) {
+      focusTransferredRef.current = true;
+      setTimeout(() => {
+        editorRef.current?.focus();
+        editorRef.current?.requestNativeFocus();
+        setTimeout(() => {
+          setBridgeActive(false);
+        }, 600);
+      }, 400);
+    }
   };
 
   return (
@@ -350,7 +370,7 @@ export default function NoteEditorScreen() {
         {isNew ? (
           <View style={{ flex: 1 }}>
             <TipTapEditor
-              autofocusTitle
+              autofocus
               initialContent={EMPTY_DOC}
               title={title}
               noteRef={null}
@@ -369,13 +389,13 @@ export default function NoteEditorScreen() {
           <View className="flex-1 items-center justify-center gap-3">
             <MaterialSymbol name="error" size={46} color={colors.mutedForeground} />
             <PaperText variant="titleMedium" style={{ color: colors.foreground }}>
-              note ga ketemu
+              Note not found
             </PaperText>
             <PaperText
               variant="bodyMedium"
               style={{ color: colors.primary }}
               onPress={() => router.back()}>
-              balik
+              Go back
             </PaperText>
           </View>
         ) : (
@@ -393,6 +413,17 @@ export default function NoteEditorScreen() {
           </View>
         )}
       </View>
+      {/* jembatan keyboard mode new: invisible, cuma buat mancing
+          keyboard naik via jalur native. dicabut habis fokus pindah. */}
+      {isNew && bridgeActive && (
+        <TextInput
+          autoFocus
+          style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          contextMenuHidden
+        />
+      )}
       {/* header melayang di atas konten full-bleed (kayak list page):
           webview ngescroll dari belakang status bar sampe nav bar. */}
       <View

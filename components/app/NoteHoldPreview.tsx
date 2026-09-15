@@ -36,6 +36,7 @@ type Props = {
   note: Note | null;
   anchor: HoldAnchor | null;
   breadcrumb?: string;
+  showPreview?: boolean;
   onDismiss: () => void;
   onOpen: (note: Note) => void;
   onSelect: (note: Note) => void;
@@ -86,7 +87,18 @@ function MenuRow({
   );
 }
 
-export function NoteHoldPreview({ note, anchor, breadcrumb, onDismiss, onOpen, onSelect, onMove, onPin, onDelete }: Props) {
+export function NoteHoldPreview({
+  note,
+  anchor,
+  breadcrumb,
+  showPreview = true,
+  onDismiss,
+  onOpen,
+  onSelect,
+  onMove,
+  onPin,
+  onDelete,
+}: Props) {
   const { colors, isDarkColorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
   const [opacity] = React.useState(() => new Animated.Value(0));
@@ -247,9 +259,14 @@ export function NoteHoldPreview({ note, anchor, breadcrumb, onDismiss, onOpen, o
       <Pressable
         accessible={false}
         onPress={() => closeThen(current, onDismiss)}
-        style={[styles.backdrop, { backgroundColor: withOpacity('#000000', isDarkColorScheme ? 0.6 : 0.45) }]}
+        style={[
+          styles.backdrop,
+          { backgroundColor: withOpacity('#000000', isDarkColorScheme ? 0.6 : 0.45) },
+        ]}
       />
-      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { paddingTop: top, paddingLeft: left }]}>
+      <View
+        pointerEvents="box-none"
+        style={[StyleSheet.absoluteFill, { paddingTop: top, paddingLeft: left }]}>
         <Animated.View
           style={{
             opacity,
@@ -278,11 +295,21 @@ export function NoteHoldPreview({ note, anchor, breadcrumb, onDismiss, onOpen, o
               ) : null}
               <PaperText
                 variant="titleMedium"
-                style={{ color: colors.foreground, fontSize: 18, fontWeight: '600' }}
+                style={{
+                  color:
+                    !current.title?.trim() || current.title === 'Untitled'
+                      ? colors.mutedForeground
+                      : colors.foreground,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  fontStyle: 'normal',
+                }}
                 numberOfLines={1}>
-                {current.title || 'Untitled'}
+                {!current.title?.trim() || current.title === 'Untitled'
+                  ? 'Untitled'
+                  : current.title}
               </PaperText>
-              {current.preview ? (
+              {showPreview && current.preview?.trim() ? (
                 <PaperText
                   variant="bodyMedium"
                   style={{ color: colors.mutedForeground }}
@@ -319,10 +346,22 @@ export function NoteHoldPreview({ note, anchor, breadcrumb, onDismiss, onOpen, o
                   shadowColor: '#000',
                 },
               ]}>
-              <MenuRow icon="open_in_new" label="Open" onPress={() => closeThen(current, () => onOpen(current))} />
+              <MenuRow
+                icon="open_in_new"
+                label="Open"
+                onPress={() => closeThen(current, () => onOpen(current))}
+              />
               <View style={[styles.separator, { backgroundColor: colors.border }]} />
-              <MenuRow icon="check_box" label="Select" onPress={() => closeThen(current, () => onSelect(current))} />
-              <MenuRow icon="drive_file_move" label="Move to..." onPress={() => closeThen(current, () => onMove(current))} />
+              <MenuRow
+                icon="check_box"
+                label="Select"
+                onPress={() => closeThen(current, () => onSelect(current))}
+              />
+              <MenuRow
+                icon="drive_file_move"
+                label="Move to..."
+                onPress={() => closeThen(current, () => onMove(current))}
+              />
               {/* 1:1 desktop sidebar: Pin/Unpin note */}
               <MenuRow
                 icon="push_pin"
@@ -330,7 +369,12 @@ export function NoteHoldPreview({ note, anchor, breadcrumb, onDismiss, onOpen, o
                 onPress={() => closeThen(current, () => onPin(current))}
               />
               <View style={[styles.separator, { backgroundColor: colors.border }]} />
-              <MenuRow icon="delete" label="Delete" destructive onPress={() => closeThen(current, () => onDelete(current))} />
+              <MenuRow
+                icon="delete"
+                label="Delete"
+                destructive
+                onPress={() => closeThen(current, () => onDelete(current))}
+              />
             </View>
           </Animated.View>
         </Animated.View>

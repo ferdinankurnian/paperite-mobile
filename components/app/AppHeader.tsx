@@ -1,6 +1,6 @@
 import { useNavigation } from 'expo-router';
 import { DrawerActions } from 'expo-router/react-navigation';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { LayoutChangeEvent, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -15,9 +15,11 @@ import {
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
 import { SaveStatusText, type SaveStatus } from '@/components/app/SaveStatusText';
 import { SpaceIcon } from '@/lib/space-icons';
-import { ToolbarMenu } from '@/components/ui/ToolbarMenu';
+import { TRASH_ID } from '@/lib/storage/files';
+import { ToolbarMenu, type ToolbarMenuEntry } from '@/components/ui/ToolbarMenu';
 import { NoteMenu } from '@/components/app/NoteMenu';
 import { useListActions } from '@/lib/list-actions';
+import { LIST_SORT_LABELS, LIST_SORT_ORDERS, useListOptions } from '@/lib/list-options';
 import { useSpace } from '@/lib/SpaceContext';
 import { useSelection } from '@/lib/selection';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -41,6 +43,8 @@ type AppHeaderProps = {
   onPinnedChange?: (pinned: boolean) => void;
   /** editor variant: status autosave, tampil di sebelah back button */
   saveStatus?: SaveStatus;
+  /** kanan atas custom — dipake halaman components buat tombol audit */
+  trailing?: ReactNode;
 };
 
 export function AppHeader({
@@ -53,11 +57,22 @@ export function AppHeader({
   getEditor,
   onPinnedChange,
   saveStatus = 'idle',
+  trailing,
 }: AppHeaderProps) {
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { activeSpace, activeSpaceName } = useSpace();
+  const { activeSpace, activeSpaceName, activeSpaceId } = useSpace();
+  const {
+    sortOrder,
+    setSortOrder,
+    foldersFirst,
+    setFoldersFirst,
+    showPreview,
+    setShowPreview,
+    hasFolders,
+  } = useListOptions();
+  const isTrashSpace = activeSpaceId === TRASH_ID;
   const {
     selecting,
     selectedCount,
@@ -68,6 +83,57 @@ export function AppHeader({
     exitSelection,
   } = useSelection();
   const { bulkDelete, requestMove } = useListActions();
+  // parity dropdown desktop (app-sidebar "Sort by" + "Folder first" +
+  // "Note previews"). custom sort + grid view belum ada di mobile — sengaja
+  // ga ditampilin. trash ga dapet menu sort (desktop juga gitu).
+  const spaceMenuEntries: ToolbarMenuEntry[] = isTrashSpace
+    ? [
+        {
+          title: 'Select',
+          icon: 'check_box',
+          accessibilityLabel: 'Select',
+          onPress: () => enterSelection(),
+        },
+      ]
+    : [
+        {
+          type: 'submenu',
+          title: 'Sort by',
+          icon: 'sort',
+          accessibilityLabel: 'Sort by',
+          children: LIST_SORT_ORDERS.map((order) => ({
+            title: LIST_SORT_LABELS[order],
+            accessibilityLabel: `Sort by ${LIST_SORT_LABELS[order]}`,
+            selected: sortOrder === order,
+            onPress: () => setSortOrder(order),
+          })),
+        },
+        // inbox ga bisa punya folder (create + move ga nyampe sana) — toggle
+        // ini disembunyiin kalo lagi ga ada folder biar ga jadi hiasan.
+        ...(hasFolders
+          ? [
+              {
+                title: 'Folders first',
+                accessibilityLabel: 'Toggle folders first',
+                selected: foldersFirst,
+                onPress: () => setFoldersFirst(!foldersFirst),
+              } as const,
+            ]
+          : []),
+        {
+          title: 'Show previews',
+          accessibilityLabel: 'Toggle note previews',
+          selected: showPreview,
+          onPress: () => setShowPreview(!showPreview),
+        },
+        { type: 'separator' },
+        {
+          title: 'Select',
+          icon: 'check_box',
+          accessibilityLabel: 'Select',
+          onPress: () => enterSelection(),
+        },
+      ];
   const isSpaceSelecting = variant === 'space' && selecting;
   const allSelected = allIds.length > 0 && selectedCount >= allIds.length;
   const iconColor = activeSpace?.color ?? colors.foreground;
@@ -269,6 +335,7 @@ export function AppHeader({
             gap: isEditor ? 12 : 0,
             flexShrink: 0,
           }}>
+          {trailing}
           {isEditor ? (
             <ToolbarItemGroup
               accessibilityLabel="Edit actions"
@@ -328,29 +395,7 @@ export function AppHeader({
                 onPress={() => enterSelection()}
               />
               <ToolbarSeparator />
-              <ToolbarMenu
-                grouped
-                actions={[
-                  {
-                    title: 'Rename',
-                    icon: 'edit',
-                    accessibilityLabel: 'Rename',
-                    onPress: () => {},
-                  },
-                  {
-                    title: 'Sort',
-                    icon: 'sort',
-                    accessibilityLabel: 'Sort',
-                    onPress: () => {},
-                  },
-                  {
-                    title: 'Select',
-                    icon: 'check_box',
-                    accessibilityLabel: 'Select',
-                    onPress: () => enterSelection(),
-                  },
-                ]}
-              />
+              <ToolbarMenu grouped entries={spaceMenuEntries} accessibilityLabel="List actions" />
             </ToolbarGroup>
           )}
         </View>

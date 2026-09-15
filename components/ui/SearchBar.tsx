@@ -1,4 +1,5 @@
 import { MaterialSymbol } from './MaterialSymbol';
+import type { Ref } from 'react';
 import {
   Pressable,
   TextInput,
@@ -16,12 +17,15 @@ export type SearchBarProps = Omit<TextInputProps, 'value' | 'onChangeText' | 'st
   onChangeText: (text: string) => void;
   style?: StyleProp<ViewStyle>;
   onClear?: () => void;
+  /** ref ke TextInput dalem — buat blur eksplisit (mis. sebelum sheet kebuka). */
+  inputRef?: Ref<TextInput>;
 };
 
 export function SearchBar({
   value,
   onChangeText,
   onClear,
+  inputRef,
   placeholder = 'Search',
   style,
   ...inputProps
@@ -49,6 +53,7 @@ export function SearchBar({
       <MaterialSymbol name="search" size={26} color={colors.mutedForeground} />
       <TextInput
         {...inputProps}
+        ref={inputRef}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

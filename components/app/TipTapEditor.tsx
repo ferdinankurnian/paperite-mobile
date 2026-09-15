@@ -76,6 +76,7 @@ export function TipTapEditor({
   const placeholderRef = useRef(placeholder);
   const autofocusRef = useRef(autofocus);
   const autofocusTitleRef = useRef(autofocusTitle);
+  const autofocusTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [webReady, setWebReady] = useState(false);
 
   useEffect(() => {
@@ -185,6 +186,9 @@ export function TipTapEditor({
     return {
       focus: (pos) => send({ type: 'focus', ...(pos ? { pos } : {}) }),
       focusTitle: () => send({ type: 'focus', target: 'title' }),
+      requestNativeFocus: () => {
+        (webviewRef.current as unknown as { requestFocus?: () => void })?.requestFocus?.();
+      },
       blur: () => command('blur'),
       undo: () => command('undo'),
       redo: () => command('redo'),
@@ -241,11 +245,18 @@ export function TipTapEditor({
         sendInitialContent();
         send({ type: 'setTitle', text: initialTitleRef.current });
         setWebReady(true);
+        // fokus pertama sering kemakan animasi pindah layar (~500ms),
+        // makanya kirim dua kali: satu cepet, satu habis transisi kelar.
         if (autofocusTitleRef.current) {
-          setTimeout(() => send({ type: 'focus', target: 'title' }), 350);
+          autofocusTimersRef.current.push(
+            setTimeout(() => send({ type: 'focus', target: 'title' }), 500),
+            setTimeout(() => send({ type: 'focus', target: 'title' }), 1100)
+          );
         } else if (autofocusRef.current) {
-          // kasih webview waktu nempel dulu sebelum keyboard dipanggil.
-          setTimeout(() => send({ type: 'focus', pos: 'end' }), 350);
+          autofocusTimersRef.current.push(
+            setTimeout(() => send({ type: 'focus', pos: 'end' }), 500),
+            setTimeout(() => send({ type: 'focus', pos: 'end' }), 1100)
+          );
         }
         flushQueue();
         onReadyRef.current?.(api);
@@ -280,7 +291,9 @@ export function TipTapEditor({
 
   useEffect(() => {
     const pending = pendingRef.current;
+    const timers = autofocusTimersRef.current;
     return () => {
+      for (const t of timers) clearTimeout(t);
       for (const req of pending.values()) {
         clearTimeout(req.timer);
         req.reject(new Error('editor unmounted'));

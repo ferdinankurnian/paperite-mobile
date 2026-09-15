@@ -39,17 +39,17 @@ export function NoteMenu({ note, getEditor, onPinnedChange }: NoteMenuProps) {
   };
 
   const confirmDelete = () => {
-    Alert.alert('hapus note?', `"${note.title || 'Untitled'}" dipindah ke trash.`, [
-      { text: 'batal', style: 'cancel' },
+    Alert.alert('Delete note?', `"${note.title || 'Untitled'}" will be moved to Trash.`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'hapus',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           const ok = await deleteNoteToTrash(note.id).catch(() => false);
           if (ok) {
             router.back();
           } else {
-            Alert.alert('gagal hapus', 'coba lagi.');
+            Alert.alert('Delete failed', 'Please try again.');
           }
         },
       },
@@ -63,7 +63,7 @@ export function NoteMenu({ note, getEditor, onPinnedChange }: NoteMenuProps) {
       const body = editor ? await editor.getText() : note.body;
       await Clipboard.setStringAsync(`${note.title}\n\n${body}`);
     } catch {
-      Alert.alert('copy gagal', 'coba lagi.');
+      Alert.alert('Copy failed', 'Please try again.');
     }
   };
 
@@ -72,9 +72,9 @@ export function NoteMenu({ note, getEditor, onPinnedChange }: NoteMenuProps) {
       await ensureStorageReady();
       const updated = await setNotePinned(note.id, !note.pinned);
       if (updated) onPinnedChange?.(updated.pinned);
-      else Alert.alert('gagal pin', 'coba lagi.');
+      else Alert.alert('Pin failed', 'Please try again.');
     } catch {
-      Alert.alert('gagal pin', 'coba lagi.');
+      Alert.alert('Pin failed', 'Please try again.');
     }
   };
 

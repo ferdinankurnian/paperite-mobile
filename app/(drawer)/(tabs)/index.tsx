@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { cssInterop } from 'nativewind';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, TextInput, View } from 'react-native';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { Text as PaperText } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,8 +16,14 @@ import { MoveSheet } from '@/components/app/MoveSheet';
 import { NoteHoldPreview, type HoldAnchor } from '@/components/app/NoteHoldPreview';
 import { SpaceBottomBar } from '@/components/app/SpaceBottomBar';
 import { ListActionsProvider, type MoveTarget } from '@/lib/list-actions';
+import { useListOptions, type ListSortOrder } from '@/lib/list-options';
 import { prefetchNote, setCachedNote } from '@/lib/note-cache';
-import { type Note, type WorkspaceItem } from '@/lib/paperite-data';
+import {
+  type Note,
+  type WorkspaceFolder,
+  type WorkspaceItem,
+  type WorkspaceNoteItem,
+} from '@/lib/paperite-data';
 import { useSpace } from '@/lib/SpaceContext';
 import { SpaceIcon } from '@/lib/space-icons';
 import { useSelection } from '@/lib/selection';
@@ -59,6 +65,7 @@ function NoteRow({
   breadcrumb,
   selecting,
   selected,
+  showPreview = true,
   onPress,
   onPressIn,
   onLongPress,
@@ -67,12 +74,18 @@ function NoteRow({
   breadcrumb?: string;
   selecting: boolean;
   selected: boolean;
+  showPreview?: boolean;
   onPress: () => void;
   onPressIn: () => void;
   onLongPress: (anchor: HoldAnchor) => void;
 }) {
   const { colors } = useColorScheme();
   const rowRef = useRef<View | null>(null);
+
+  // judul kosong kesimpen jadi 'Untitled' di storage — tampilin grey
+  // biar keliatan itu placeholder, bukan judul beneran.
+  const isUntitled = !note.title?.trim() || note.title === 'Untitled';
+  const hasPreview = showPreview && (note.preview ?? '').trim().length > 0;
 
   const fireLongPress = () => {
     const el = rowRef.current;
@@ -143,21 +156,29 @@ function NoteRow({
             <View className="mb-1 flex-row items-center gap-2">
               <PaperText
                 variant="titleMedium"
-                style={{ color: colors.foreground, fontSize: 18, fontWeight: '600', flex: 1 }}
+                style={{
+                  color: isUntitled ? colors.mutedForeground : colors.foreground,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  fontStyle: 'normal',
+                  flex: 1,
+                }}
                 numberOfLines={1}>
-                {note.title}
+                {isUntitled ? 'Untitled' : note.title}
               </PaperText>
               {/* 1:1 desktop: pin kecil di sebelah judul */}
               {note.pinned ? (
                 <MaterialSymbol name="push_pin" size={18} color={colors.mutedForeground} />
               ) : null}
             </View>
-            <PaperText
-              variant="bodyMedium"
-              style={{ color: colors.mutedForeground }}
-              numberOfLines={2}>
-              {note.preview}
-            </PaperText>
+            {hasPreview ? (
+              <PaperText
+                variant="bodyMedium"
+                style={{ color: colors.mutedForeground }}
+                numberOfLines={2}>
+                {note.preview}
+              </PaperText>
+            ) : null}
           </View>
         </View>
       </Pressable>
@@ -269,6 +290,86 @@ function collectNotes(items: WorkspaceItem[], out: Note[]) {
   }
 }
 
+function treeHasFolders(items: WorkspaceItem[]): boolean {
+  for (const item of items) {
+    if (item.type === 'folder') return true;
+  }
+  return false;
+}
+
+// port sortWorkspaceItems desktop (app-sidebar.tsx) minus "custom" — mobile
+// belum ada drag-reorder. pin selalu float ke atas dalam level-nya sendiri.
+function titleForSort(item: WorkspaceItem): string {
+  const title = item.type === 'folder' ? item.title : item.note.title;
+  return title.trim() || 'Untitled';
+}
+
+function pinFirstItems(items: WorkspaceItem[]): WorkspaceItem[] {
+  return [
+    ...items.filter((i) => i.type === 'note' && i.note.pinned),
+    ...items.filter((i) => !(i.type === 'note' && i.note.pinned)),
+  ];
+}
+
+function sortWorkspaceItems(
+  items: WorkspaceItem[],
+  sortOrder: ListSortOrder,
+  foldersFirst: boolean
+): WorkspaceItem[] {
+  const withSortedChildren = items.map((item) =>
+    item.type === 'folder'
+      ? { ...item, children: sortWorkspaceItems(item.children, sortOrder, foldersFirst) }
+      : item
+  );
+
+  let sorted: WorkspaceItem[];
+  if (sortOrder === 'a-z' || sortOrder === 'z-a') {
+    sorted = [...withSortedChildren].sort((a, b) => {
+      const comparison = titleForSort(a).localeCompare(titleForSort(b), undefined, {
+        sensitivity: 'base',
+        numeric: true,
+      });
+      return sortOrder === 'a-z' ? comparison : -comparison;
+    });
+  } else {
+    const notes = withSortedChildren.filter(
+      (item): item is WorkspaceNoteItem => item.type === 'note'
+    );
+    const sortedNotes = [...notes].sort((a, b) =>
+      sortOrder === 'newest'
+        ? b.note.updatedAt - a.note.updatedAt
+        : a.note.updatedAt - b.note.updatedAt
+    );
+    let noteIndex = 0;
+    sorted = withSortedChildren.map((item) =>
+      item.type === 'note' ? sortedNotes[noteIndex++] : item
+    );
+  }
+
+  const pinned = pinFirstItems(sorted);
+  if (!foldersFirst) return pinned;
+  return [
+    ...pinned.filter((i): i is WorkspaceFolder => i.type === 'folder'),
+    ...pinned.filter((i): i is WorkspaceNoteItem => i.type === 'note'),
+  ];
+}
+
+/** flat notes (mode search): sort + pinFirst, folder ga ditampilin. */
+function sortFlatNotes(notes: Note[], sortOrder: ListSortOrder): Note[] {
+  const sorted = [...notes].sort((a, b) => {
+    if (sortOrder === 'a-z' || sortOrder === 'z-a') {
+      const comparison = (a.title.trim() || 'Untitled').localeCompare(
+        b.title.trim() || 'Untitled',
+        undefined,
+        { sensitivity: 'base', numeric: true }
+      );
+      return sortOrder === 'a-z' ? comparison : -comparison;
+    }
+    return sortOrder === 'newest' ? b.updatedAt - a.updatedAt : a.updatedAt - b.updatedAt;
+  });
+  return [...sorted.filter((n) => n.pinned), ...sorted.filter((n) => !n.pinned)];
+}
+
 export default function NotesListScreen() {
   const { colors } = useColorScheme();
   const { activeSpaceId, activeSpace } = useSpace();
@@ -285,9 +386,17 @@ export default function NotesListScreen() {
   const { selecting, enterSelection, toggleSelect, isSelected, setAllIds, exitSelection } =
     useSelection();
   const { expanded, toggle: toggleFolder, expand: expandFolder } = useExpandedFolders();
+  const { sortOrder, foldersFirst, showPreview, setHasFolders } = useListOptions();
 
   const folderSheetRef = useRef<BottomSheetModal | null>(null);
   const moveSheetRef = useRef<BottomSheetModal | null>(null);
+  const searchInputRef = useRef<TextInput | null>(null);
+  // search yang lagi ke-focus harus di-blur eksplisit sebelum sheet
+  // kebuka / pindah halaman — kalau engga, focus nyangkut + keyboard
+  // nongol lagi sendiri pas sheet ketutup / balik ke list.
+  const blurSearch = useCallback(() => {
+    searchInputRef.current?.blur();
+  }, []);
   const [folderRequest, setFolderRequest] = useState<FolderNameRequest | null>(null);
   const [moveTargets, setMoveTargets] = useState<MoveTarget[]>([]);
   // hold-preview ala instagram: note yang lagi di-hold + posisi row-nya
@@ -306,6 +415,17 @@ export default function NotesListScreen() {
     return map;
   }, [allFlatNotes]);
 
+  const sortedTree = useMemo(
+    () => sortWorkspaceItems(tree, sortOrder, foldersFirst),
+    [tree, sortOrder, foldersFirst]
+  );
+
+  // header perlu tau ada folder apa engga biar toggle "folders first"
+  // disembunyiin kalo ga relevan (mis. inbox yang ga bisa punya folder).
+  useEffect(() => {
+    setHasFolders(treeHasFolders(tree));
+  }, [tree, setHasFolders]);
+
   const rows: Row[] = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (isTrash) {
@@ -321,20 +441,24 @@ export default function NotesListScreen() {
     }
     if (q) {
       // mode search: flat, folder disembunyiin, breadcrumb nunjukin lokasi
-      return allFlatNotes
-        .filter(
-          (n) =>
-            n.title.toLowerCase().includes(q) ||
-            n.preview.toLowerCase().includes(q) ||
-            n.body.toLowerCase().includes(q) ||
-            n.parentPath.toLowerCase().includes(q)
-        )
-        .map((note) => ({ kind: 'note' as const, key: `n:${note.path}`, note, depth: 0 }));
+      const hits = allFlatNotes.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          n.preview.toLowerCase().includes(q) ||
+          n.body.toLowerCase().includes(q) ||
+          n.parentPath.toLowerCase().includes(q)
+      );
+      return sortFlatNotes(hits, sortOrder).map((note) => ({
+        kind: 'note' as const,
+        key: `n:${note.path}`,
+        note,
+        depth: 0,
+      }));
     }
     const out: Row[] = [];
-    flattenTree(tree, expanded, 0, out);
+    flattenTree(sortedTree, expanded, 0, out);
     return out;
-  }, [isTrash, trashItems, search, allFlatNotes, tree, expanded]);
+  }, [isTrash, trashItems, search, allFlatNotes, sortedTree, expanded, sortOrder]);
 
   const breadcrumbFor = useCallback(
     (note: Note): string | undefined => {
@@ -387,13 +511,14 @@ export default function NotesListScreen() {
       const now = Date.now();
       if (now - lastPushRef.current < 600) return;
       lastPushRef.current = now;
+      blurSearch();
       prefetchNote(note.id, note.spaceId);
       router.push({
         pathname: '/note/[id]',
         params: { id: note.id, title: note.title, spaceId: note.spaceId },
       });
     },
-    [selecting, toggleSelect]
+    [selecting, toggleSelect, blurSearch]
   );
 
   // jari nempel = file dibaca duluan, pas onPress push isinya udah di cache.
@@ -417,8 +542,8 @@ export default function NotesListScreen() {
 
   const handleTrashPress = useCallback(
     (item: TrashNote) => {
-      Alert.alert(item.title || 'Untitled', `asal: ${item.originalPath}`, [
-        { text: 'batal', style: 'cancel' },
+      Alert.alert(item.title || 'Untitled', `from: ${item.originalPath}`, [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Restore',
           onPress: async () => {
@@ -427,12 +552,12 @@ export default function NotesListScreen() {
               await restoreTrashItem(item.trashPath.split('/').pop() as string);
               reloadTrash();
             } catch {
-              Alert.alert('restore gagal', 'coba lagi.');
+              Alert.alert('Restore failed', 'Please try again.');
             }
           },
         },
         {
-          text: 'hapus permanen',
+          text: 'Delete permanently',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -440,7 +565,7 @@ export default function NotesListScreen() {
               await permanentDeleteTrashItem(item.trashPath.split('/').pop() as string);
               reloadTrash();
             } catch {
-              Alert.alert('gagal hapus', 'coba lagi.');
+              Alert.alert('Delete failed', 'Please try again.');
             }
           },
         },
@@ -449,21 +574,33 @@ export default function NotesListScreen() {
     [reloadTrash]
   );
 
-  const requestCreateFolder = useCallback((parentPath: string, parentTitle?: string) => {
-    setFolderRequest({ mode: 'create', parentPath, parentTitle: parentTitle ?? parentPath });
-    folderSheetRef.current?.present();
-  }, []);
+  const requestCreateFolder = useCallback(
+    (parentPath: string, parentTitle?: string) => {
+      blurSearch();
+      setFolderRequest({ mode: 'create', parentPath, parentTitle: parentTitle ?? parentPath });
+      folderSheetRef.current?.present();
+    },
+    [blurSearch]
+  );
 
-  const requestRename = useCallback((path: string, currentTitle: string) => {
-    setFolderRequest({ mode: 'rename', path, currentTitle });
-    folderSheetRef.current?.present();
-  }, []);
+  const requestRename = useCallback(
+    (path: string, currentTitle: string) => {
+      blurSearch();
+      setFolderRequest({ mode: 'rename', path, currentTitle });
+      folderSheetRef.current?.present();
+    },
+    [blurSearch]
+  );
 
-  const requestMove = useCallback((targets: MoveTarget[]) => {
-    if (targets.length === 0) return;
-    setMoveTargets(targets);
-    moveSheetRef.current?.present();
-  }, []);
+  const requestMove = useCallback(
+    (targets: MoveTarget[]) => {
+      if (targets.length === 0) return;
+      blurSearch();
+      setMoveTargets(targets);
+      moveSheetRef.current?.present();
+    },
+    [blurSearch]
+  );
 
   const handleFolderSubmit = useCallback(
     async (request: FolderNameRequest, name: string) => {
@@ -478,7 +615,7 @@ export default function NotesListScreen() {
         }
         reload();
       } catch (e) {
-        Alert.alert('gagal', e instanceof Error ? e.message : 'coba lagi.');
+        Alert.alert('Failed', e instanceof Error ? e.message : 'Please try again.');
         throw e;
       }
     },
@@ -496,7 +633,7 @@ export default function NotesListScreen() {
         exitSelection();
         reload();
       } catch {
-        Alert.alert('move gagal', 'coba lagi.');
+        Alert.alert('Move failed', 'Please try again.');
         throw new Error('move failed');
       }
     },
@@ -513,7 +650,7 @@ export default function NotesListScreen() {
         exitSelection();
         reload();
       } catch {
-        Alert.alert('hapus gagal', 'coba lagi.');
+        Alert.alert('Delete failed', 'Please try again.');
       }
     },
     [reload, exitSelection]
@@ -561,7 +698,7 @@ export default function NotesListScreen() {
         }
         reload();
       } catch {
-        Alert.alert('gagal pin', 'coba lagi.');
+        Alert.alert('Pin failed', 'Please try again.');
       }
     },
     [dismissHold, reload]
@@ -570,10 +707,10 @@ export default function NotesListScreen() {
   const handleHoldDelete = useCallback(
     (note: Note) => {
       dismissHold();
-      Alert.alert('hapus note?', `"${note.title || 'Untitled'}" dipindah ke trash.`, [
-        { text: 'batal', style: 'cancel' },
+      Alert.alert('Delete note?', `"${note.title || 'Untitled'}" will be moved to Trash.`, [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'hapus',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -581,7 +718,7 @@ export default function NotesListScreen() {
               await deleteNoteToTrash(note.id);
               reload();
             } catch {
-              Alert.alert('gagal hapus', 'coba lagi.');
+              Alert.alert('Delete failed', 'Please try again.');
             }
           },
         },
@@ -599,15 +736,17 @@ export default function NotesListScreen() {
 
   const handleFolderLongPress = useCallback(
     (folderPath: string, title: string, noteCount: number) => {
-      Alert.alert(title, noteCount === 0 ? 'folder kosong' : `${noteCount} note di dalam`, [
-        { text: 'batal', style: 'cancel' },
+      Alert.alert(title, noteCount === 0 ? 'Empty folder' : `${noteCount} notes inside`, [
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'New note here',
-          onPress: () =>
+          onPress: () => {
+            blurSearch();
             router.push({
               pathname: '/note/[id]',
               params: { id: 'new', spaceId: activeSpaceId, parentPath: folderPath },
-            }),
+            });
+          },
         },
         {
           text: 'New subfolder',
@@ -626,12 +765,12 @@ export default function NotesListScreen() {
           style: 'destructive',
           onPress: () => {
             Alert.alert(
-              'hapus folder?',
-              `"${title}"${noteCount > 0 ? ` + ${noteCount} note di dalamnya` : ''} dipindah ke trash.`,
+              'Delete folder?',
+              `"${title}"${noteCount > 0 ? ` with ${noteCount} notes inside` : ''} will be moved to Trash.`,
               [
-                { text: 'batal', style: 'cancel' },
+                { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'hapus',
+                  text: 'Delete',
                   style: 'destructive',
                   onPress: async () => {
                     try {
@@ -639,7 +778,7 @@ export default function NotesListScreen() {
                       await deleteItemToTrash(folderPath);
                       reload();
                     } catch {
-                      Alert.alert('gagal hapus', 'coba lagi.');
+                      Alert.alert('Delete failed', 'Please try again.');
                     }
                   },
                 },
@@ -649,7 +788,7 @@ export default function NotesListScreen() {
         },
       ]);
     },
-    [activeSpaceId, requestCreateFolder, requestRename, requestMove, reload]
+    [activeSpaceId, requestCreateFolder, requestRename, requestMove, reload, blurSearch]
   );
 
   const listActions = useMemo(
@@ -721,6 +860,7 @@ export default function NotesListScreen() {
                     breadcrumb={item.item.originalPath}
                     selecting={false}
                     selected={false}
+                    showPreview={showPreview}
                     onPress={() => handleTrashPress(item.item)}
                     onPressIn={() => undefined}
                     onLongPress={() => handleTrashPress(item.item)}
@@ -739,6 +879,7 @@ export default function NotesListScreen() {
                   }
                   selecting={selecting}
                   selected={isSelected(item.note.id)}
+                  showPreview={showPreview}
                   onPress={() => handleRowPress(item.note)}
                   onPressIn={() => handleRowPressIn(item.note)}
                   onLongPress={(anchor) => handleRowLongPress(item.note, anchor)}
@@ -753,16 +894,16 @@ export default function NotesListScreen() {
                   color={colors.mutedForeground}
                 />
                 <PaperText variant="titleMedium" style={{ color: colors.foreground }}>
-                  {search.trim() ? 'ga ketemu' : isTrash ? 'trash kosong' : 'no notes yet'}
+                  {search.trim() ? 'No results' : isTrash ? 'Trash is empty' : 'no notes yet'}
                 </PaperText>
                 <PaperText
                   variant="bodyMedium"
                   style={{ color: colors.mutedForeground, textAlign: 'center' }}>
                   {search.trim()
-                    ? `ga ada note yang match "${search.trim()}"`
+                    ? `No notes matching "${search.trim()}"`
                     : isTrash
-                      ? 'note yang dihapus mampir di sini 30 hari.'
-                      : 'space ini masih kosong. tekan + buat note baru.'}
+                      ? 'Deleted notes stay here for 30 days.'
+                      : 'This space is empty. Tap + to create a new note.'}
                 </PaperText>
               </View>
             }
@@ -772,6 +913,7 @@ export default function NotesListScreen() {
         <SpaceBottomBar
           search={search}
           onSearchChange={setSearch}
+          searchInputRef={searchInputRef}
           showAdd={showFab}
           showNewFolder={showNewFolder}
           onNewFolder={() => requestCreateFolder(activeSpaceId, activeSpace?.name ?? activeSpaceId)}
@@ -793,6 +935,7 @@ export default function NotesListScreen() {
           note={heldNote}
           anchor={holdAnchor}
           breadcrumb={heldNote ? breadcrumbFor(heldNote) : undefined}
+          showPreview={showPreview}
           onDismiss={dismissHold}
           onOpen={handleHoldOpen}
           onSelect={handleHoldSelect}

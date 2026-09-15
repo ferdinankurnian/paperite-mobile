@@ -129,7 +129,7 @@ export function MoveSheet({ sheetRef, spaceId, spaceName, targets, onPick }: Pro
         <PaperText
           variant="bodySmall"
           style={{ color: colors.mutedForeground, textAlign: 'center' }}>
-          pilih tujuan
+          Choose a destination
         </PaperText>
       </View>
       <BottomSheetFlatList

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
+import type { RefObject } from 'react';
 import { useState } from 'react';
-import { LayoutChangeEvent, View } from 'react-native';
+import { LayoutChangeEvent, TextInput, View } from 'react-native';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -17,6 +18,7 @@ type Props = {
   showNewFolder?: boolean;
   showAdd?: boolean;
   onNewFolder?: () => void;
+  searchInputRef?: RefObject<TextInput | null>;
 };
 
 export function SpaceBottomBar({
@@ -25,6 +27,7 @@ export function SpaceBottomBar({
   showNewFolder = false,
   showAdd = true,
   onNewFolder,
+  searchInputRef,
 }: Props) {
   const { colors, isDarkColorScheme } = useColorScheme();
   const { activeSpaceId } = useSpace();
@@ -99,17 +102,19 @@ export function SpaceBottomBar({
           <SearchBar
             value={search}
             onChangeText={onSearchChange}
+            inputRef={searchInputRef}
             accessibilityLabel="Search notes"
           />
 
           {showAdd ? (
             <ToolbarItem
-              onPress={() =>
+              onPress={() => {
+                searchInputRef?.current?.blur();
                 router.push({
                   pathname: '/note/[id]',
                   params: { id: 'new', spaceId: activeSpaceId },
-                })
-              }
+                });
+              }}
               accessibilityLabel="New note"
               style={{
                 backgroundColor: colors.primary,

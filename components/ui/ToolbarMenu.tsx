@@ -30,6 +30,8 @@ export type ToolbarMenuItem = {
   accessibilityLabel?: string;
   destructive?: boolean;
   disabled?: boolean;
+  /** parity dropdown desktop (radio/checkbox): centang di kanan */
+  selected?: boolean;
   onPress?: () => void;
 };
 
@@ -185,6 +187,7 @@ export function ToolbarMenu({
         <Text numberOfLines={1} style={[styles.itemLabel, { color: tint }]}>
           {item.title}
         </Text>
+        {item.selected ? <MaterialSymbol name="check" size={22} color={colors.primary} /> : null}
       </MenuItemButton>
     );
     // disabled = baris statis, nggak nempel ke primitive (nggak bisa di-tap,
@@ -613,14 +616,14 @@ function AnimatedMenuContent({
 
 // Slot child buat Item asChild: nerima onPress/role/aria dari primitive,
 // nge-render outer clip + Pressable ripple milik sendiri.
-// NOTE: onPress dari Slot (Item internal → action) sengaja NGGAK dipasang
-// manual di Pressable — Slot udah nge-compose: onDismiss kita jalan dulu,
-// baru action. kalo dipasang manual, action kefire 2x.
+// Slot cuma merge handler jadi prop onPress — karena ini komponen custom,
+// prop itu HARUS dipanggil manual di Pressable. kalo di-discard (kayak
+// sebelumnya), action item ga pernah kefire: menu ketutup doang, hiasan.
 function MenuItemButton({
   children,
   onDismiss,
   disabled,
-  onPress: _slotOnPress,
+  onPress: slotOnPress,
   ...props
 }: MenuItemButtonProps & { disabled?: boolean }) {
   const { colors } = useColorScheme();
@@ -629,7 +632,10 @@ function MenuItemButton({
     <View style={styles.itemOuter}>
       <Pressable
         {...props}
-        onPress={onDismiss}
+        onPress={() => {
+          onDismiss?.();
+          if (!disabled) slotOnPress?.();
+        }}
         disabled={disabled}
         android_ripple={{
           color: withOpacity(colors.foreground, 0.14),

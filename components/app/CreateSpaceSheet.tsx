@@ -103,7 +103,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
   const [tab, setTab] = React.useState<'icons' | 'upload'>('icons');
   // grid berat → mount belakangan biar animasi slide-up ga kecekek
   const [gridReady, setGridReady] = React.useState(false);
-  const snapPoints = React.useMemo(() => ['88%'], []);
+  const snapPoints = React.useMemo(() => ['94%'], []);
 
   // 14 warna desktop → 7 kolom x 2 baris, fix
   const colorRows = React.useMemo(() => {
@@ -184,7 +184,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
       enableDynamicSizing={false}
       enablePanDownToClose
       keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
+      keyboardBlurBehavior="none"
       android_keyboardInputMode="adjustResize"
       backdropComponent={SheetBackdrop}
       footerComponent={renderFooter}
@@ -344,7 +344,7 @@ export function CreateSpaceSheet({ sheetRef, onCreated }: Props) {
               }}>
               <MaterialSymbol name="upload" size={28} color={colors.mutedForeground} />
               <PaperText variant="bodyMedium" style={{ color: colors.mutedForeground }}>
-                custom icon upload nyusul
+                Custom icon upload coming soon
               </PaperText>
             </View>
           )}

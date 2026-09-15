@@ -55,7 +55,7 @@ export function FolderNameSheet({ sheetRef, request, onSubmit }: Props) {
 
   const title = request?.mode === 'rename' ? 'Rename folder' : 'New folder';
   const subtitle =
-    request?.mode === 'rename' ? request.path : request ? `di ${request.parentTitle}` : '';
+    request?.mode === 'rename' ? request.path : request ? `in ${request.parentTitle}` : '';
   const canSave = name.trim().length > 0 && !busy;
 
   const handleSheetChange = React.useCallback(() => {
@@ -85,7 +85,7 @@ export function FolderNameSheet({ sheetRef, request, onSubmit }: Props) {
       enableDynamicSizing={false}
       enablePanDownToClose
       keyboardBehavior="extend"
-      keyboardBlurBehavior="restore"
+      keyboardBlurBehavior="none"
       android_keyboardInputMode="adjustResize"
       backdropComponent={SheetBackdrop}
       handleComponent={null}

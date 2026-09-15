@@ -9,7 +9,7 @@ import { AppHeader } from '@/components/app/AppHeader';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 
-export type SettingsSectionId = 'appearance' | 'about';
+export type SettingsSectionId = 'appearance' | 'about' | 'components';
 
 const THEME_LABELS = { light: 'Light', dark: 'Dark', system: 'System' } as const;
 
@@ -94,6 +94,12 @@ export default function SettingsScreen() {
             title="About"
             value="v1.0.0"
             onPress={() => router.push('/settings/about')}
+          />
+          <SettingsRow
+            icon="widgets"
+            title="Components"
+            value="WIP"
+            onPress={() => router.push('/settings/components')}
             last
           />
         </View>

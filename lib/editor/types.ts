@@ -53,6 +53,10 @@ export type ImageSizePreset = 'small' | 'medium' | 'large' | 'original';
 export type MobileEditor = {
   focus: (pos?: 'start' | 'end') => void;
   focusTitle: () => void;
+  /** fokus native ke view webview (android/ios requestFocus) — wajib
+   *  dipanggil bareng focus() pas autofocus, kalau engga keyboard ga
+   *  nempel walau kursor udah di dalem editor. */
+  requestNativeFocus: () => void;
   blur: () => void;
   undo: () => void;
   redo: () => void;

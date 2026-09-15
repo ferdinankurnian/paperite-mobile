@@ -311,7 +311,10 @@ export function EditorToolbar({
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('butuh izin galeri', 'kasih akses foto di settings biar bisa milih gambar.');
+        Alert.alert(
+          'Gallery permission needed',
+          'Allow photo access in Settings to pick images.'
+        );
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -334,7 +337,7 @@ export function EditorToolbar({
       const mime = asset.mimeType ?? (ext ? mimeForExt(ext) : 'image/jpeg');
       insertDataUrl(`data:${mime};base64,${base64}`);
     } catch {
-      Alert.alert('gagal masukin gambar', 'coba lagi.');
+      Alert.alert('Failed to insert image', 'Please try again.');
     } finally {
       setImageBusy(false);
     }
@@ -347,18 +350,18 @@ export function EditorToolbar({
       // ios 16+ yang deny paste permission kebacanya sama kayak kosong
       // (limitasi ios) — pesannya disamain aja biar ga ngaco.
       if (!(await Clipboard.hasImageAsync())) {
-        Alert.alert('clipboard kosong', 'copy gambar dulu baru paste.');
+        Alert.alert('Clipboard is empty', 'Copy an image first, then paste.');
         return;
       }
       const img = await Clipboard.getImageAsync({ format: 'png' });
       if (!img?.data) {
-        Alert.alert('paste gagal', 'gambar di clipboard ga kebaca.');
+        Alert.alert('Paste failed', 'Could not read the image from the clipboard.');
         return;
       }
       // data udah full data URL (ada prefix data:image/…;base64,).
       insertDataUrl(img.data);
     } catch {
-      Alert.alert('paste gagal', 'coba lagi.');
+      Alert.alert('Paste failed', 'Please try again.');
     } finally {
       setImageBusy(false);
     }
@@ -811,7 +814,9 @@ export function EditorToolbar({
                 fontSize: 13,
                 color: colors.mutedForeground,
               }}>
-              {imageBusy ? 'lagi diproses…' : 'kesimpen di folder note, kebawa pas sync desktop.'}
+              {imageBusy
+                ? 'Processing…'
+                : 'Saved in the note folder, included when syncing with desktop.'}
             </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <Pressable
