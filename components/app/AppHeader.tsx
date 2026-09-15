@@ -6,17 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { MobileEditor } from '@/lib/editor/types';
 
-import {
-  ToolbarItem,
-  ToolbarItemGroup,
-  ToolbarGroup,
-  ToolbarSeparator,
-} from '@/components/ui/Toolbar';
+import { ToolbarGroup, ToolbarItem } from '@/components/ui/Toolbar';
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
 import { SaveStatusText, type SaveStatus } from '@/components/app/SaveStatusText';
 import { SpaceIcon } from '@/lib/space-icons';
 import { TRASH_ID } from '@/lib/storage/files';
-import { ToolbarMenu, type ToolbarMenuEntry } from '@/components/ui/ToolbarMenu';
+import type { ToolbarMenuEntry } from '@/components/ui/ToolbarMenu';
 import { NoteMenu } from '@/components/app/NoteMenu';
 import { useListActions } from '@/lib/list-actions';
 import { LIST_SORT_LABELS, LIST_SORT_ORDERS, useListOptions } from '@/lib/list-options';
@@ -337,11 +332,11 @@ export function AppHeader({
           }}>
           {trailing}
           {isEditor ? (
-            <ToolbarItemGroup
+            <ToolbarGroup
               accessibilityLabel="Edit actions"
               actions={[
-                { icon: 'undo', iconSize: 26, onPress: onUndoPress, accessibilityLabel: 'Undo' },
-                { icon: 'redo', iconSize: 26, onPress: onRedoPress, accessibilityLabel: 'Redo' },
+                { icon: 'undo', accessibilityLabel: 'Undo', onPress: onUndoPress },
+                { icon: 'redo', accessibilityLabel: 'Redo', onPress: onRedoPress },
               ]}
             />
           ) : null}
@@ -351,20 +346,19 @@ export function AppHeader({
               <NoteMenu note={note} getEditor={getEditor} onPinnedChange={onPinnedChange} />
             ) : null
           ) : isSettings || isDetail ? null : isSpaceSelecting ? (
-            <ToolbarGroup accessibilityLabel="Selection actions">
-              <ToolbarItem
-                grouped
-                hitSlop={4}
-                icon={allSelected ? 'deselect' : 'select_all'}
-                iconSize={26}
-                accessibilityLabel={allSelected ? 'Deselect all' : 'Select all'}
-                onPress={toggleSelectAll}
-              />
-              <ToolbarSeparator />
-              <ToolbarMenu
-                grouped
-                accessibilityLabel="Bulk actions"
-                actions={[
+            <ToolbarGroup
+              accessibilityLabel="Selection actions"
+              actions={[
+                {
+                  icon: allSelected ? 'deselect' : 'select_all',
+                  accessibilityLabel: allSelected ? 'Deselect all' : 'Select all',
+                  onPress: toggleSelectAll,
+                },
+              ]}
+              menu={{
+                icon: 'more_vert',
+                accessibilityLabel: 'Bulk actions',
+                entries: [
                   {
                     title: 'Delete',
                     icon: 'delete',
@@ -381,22 +375,25 @@ export function AppHeader({
                       requestMove(selectedIds.map((id) => ({ path: id, title: id })));
                     },
                   },
-                ]}
-              />
-            </ToolbarGroup>
+                ],
+              }}
+            />
           ) : (
-            <ToolbarGroup accessibilityLabel="List actions">
-              <ToolbarItem
-                grouped
-                hitSlop={4}
-                icon="check_box"
-                iconSize={26}
-                accessibilityLabel="Select notes"
-                onPress={() => enterSelection()}
-              />
-              <ToolbarSeparator />
-              <ToolbarMenu grouped entries={spaceMenuEntries} accessibilityLabel="List actions" />
-            </ToolbarGroup>
+            <ToolbarGroup
+              accessibilityLabel="List actions"
+              actions={[
+                {
+                  icon: 'check_box',
+                  accessibilityLabel: 'Select notes',
+                  onPress: () => enterSelection(),
+                },
+              ]}
+              menu={{
+                icon: 'more_vert',
+                accessibilityLabel: 'List actions',
+                entries: spaceMenuEntries,
+              }}
+            />
           )}
         </View>
       </View>

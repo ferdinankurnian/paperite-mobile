@@ -10,9 +10,8 @@ import { AboutBody } from '@/components/app/settings/AboutBody';
 import { AppearanceBody } from '@/components/app/settings/AppearanceBody';
 import { ComponentsBody } from '@/components/app/settings/ComponentsBody';
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
-import { ToolbarGroup, ToolbarItem, ToolbarSeparator } from '@/components/ui/Toolbar';
+import { ToolbarGroup } from '@/components/ui/Toolbar';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { withOpacity } from '@/theme/with-opacity';
 
 const TITLES = { appearance: 'Appearance', about: 'About', components: 'Components' } as const;
 
@@ -72,26 +71,22 @@ export default function SettingsDetailScreen() {
           onLeftPress={() => router.back()}
           trailing={
             isComponents ? (
-              <ToolbarGroup accessibilityLabel="Components actions">
-                <ToolbarItem
-                  grouped
-                  icon={isDarkColorScheme ? 'light_mode' : 'dark_mode'}
-                  iconSize={26}
-                  accessibilityLabel={isDarkColorScheme ? 'Switch to light' : 'Switch to dark'}
-                  onPress={toggleColorScheme}
-                />
-                <ToolbarSeparator />
-                <ToolbarItem
-                  grouped
-                  icon="fact_check"
-                  iconSize={26}
-                  accessibilityLabel={showAudit ? 'Hide audit' : 'Show audit'}
-                  onPress={() => setShowAudit((v) => !v)}
-                  style={
-                    showAudit ? { backgroundColor: withOpacity(colors.primary, 0.12) } : undefined
-                  }
-                />
-              </ToolbarGroup>
+              <ToolbarGroup
+                accessibilityLabel="Components actions"
+                actions={[
+                  {
+                    icon: isDarkColorScheme ? 'light_mode' : 'dark_mode',
+                    accessibilityLabel: isDarkColorScheme ? 'Switch to light' : 'Switch to dark',
+                    onPress: toggleColorScheme,
+                  },
+                  {
+                    icon: 'fact_check',
+                    accessibilityLabel: showAudit ? 'Hide audit' : 'Show audit',
+                    onPress: () => setShowAudit((v) => !v),
+                    active: showAudit,
+                  },
+                ]}
+              />
             ) : undefined
           }
         />

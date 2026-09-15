@@ -1,5 +1,13 @@
-import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Children, Fragment, useState, type ReactNode } from 'react';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 
 import { MaterialSymbol } from './MaterialSymbol';
@@ -10,25 +18,43 @@ import { withOpacity } from '@/theme/with-opacity';
 /**
  * button standar — pill ala toolbar (h48, full radius).
  * fit content + center sendiri (alignSelf center), jangan di-stretch.
- * icon button bulet TETAP milik ToolbarItem, jangan dicampur.
- * skala emphasis: default → primary → tinted → destructive → ghost.
+ * size="icon" → bulet 48x48 icon-only ala shadcn, varian warna tetap nempel.
+ * skala emphasis: default → primary (fill oren) → tinted (fill warna bebas)
+ * → destructive → ghost.
  */
 export type ButtonVariant = 'default' | 'primary' | 'tinted' | 'destructive' | 'ghost';
 
-type ButtonProps = {
-  title: string;
+export type ButtonSize = 'default' | 'icon';
+
+type ButtonBaseProps = {
   onPress?: () => void;
   variant?: ButtonVariant;
   disabled?: boolean;
-  /** nama MaterialSymbol, mis. "image". dirender 22px di kiri label. */
-  icon?: string;
-  /** warna custom KHUSUS varian tinted (bg + border + teks + ripple). default primary. */
+  /** warna custom KHUSUS varian tinted (bg + border). primary/destructive tint-nya dikunci. */
   tint?: string;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
 
+export type ButtonProps = ButtonBaseProps &
+  (
+    | {
+        size?: 'default';
+        title: string;
+        /** nama MaterialSymbol, mis. "image". dirender 22px di kiri label. */
+        icon?: string;
+      }
+    | {
+        size: 'icon';
+        title?: string;
+        /** nama MaterialSymbol — WAJIB buat size icon, dirender 26px. */
+        icon: string;
+      }
+  );
+
 export const BUTTON_HEIGHT = 48;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function Button({
   title,
@@ -36,78 +62,104 @@ export function Button({
   variant = 'default',
   disabled = false,
   icon,
+  size = 'default',
   tint,
   accessibilityLabel,
   style,
 }: ButtonProps) {
   const { colors, isDarkColorScheme } = useColorScheme();
   const [holding, setHolding] = useState(false);
+  const [scale] = useState(() => new Animated.Value(1));
+
+  const pressIn = () => {
+    if (disabled) return;
+    setHolding(true);
+    // bulet 48 kecil — butuh scale lebih gede biar kerasa.
+    // pill text udah lebar, 1.04 cukup biar ga jedag.
+    Animated.timing(scale, {
+      toValue: isIconOnly ? 1.08 : 1.04,
+      duration: 120,
+      useNativeDriver: true,
+    }).start();
+  };
+  const pressOut = () => {
+    setHolding(false);
+    Animated.timing(scale, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+  };
 
   const bordered = variant !== 'ghost';
+  // primary = fill theme primary (tint dikunci, ga bisa custom).
+  // tinted = fill warna bebas (kasih tint, fallback primary).
   // destructive = tinted yang tint-nya dikunci ke colors.destructive.
-  const isFilled = variant === 'tinted' || variant === 'destructive';
-  const tintColor = variant === 'destructive' ? colors.destructive : (tint ?? colors.primary);
+  const isFilled = variant === 'primary' || variant === 'tinted' || variant === 'destructive';
+  const tintColor =
+    variant === 'destructive'
+      ? colors.destructive
+      : variant === 'tinted'
+        ? (tint ?? colors.primary)
+        : colors.primary;
 
-  // filled: bg 0.85 + teks white, destructive selalu solid biar merahnya ga kepink.
-  // border solid sewarna (silhouette ring).
-  // ios ga ada ripple — tinted feedback lewat bg yang memadat ke solid pas holding,
+  // filled: dark bg 0.85 + ring solid (ring brighter dari fill).
+  // light (eksperimen flip): bg primary 0.8 / tinted 0.9 + ring putih
+  // translusen, jadi ring lebih terang dari fill — hubungan yang sama
+  // kayak dark. solid murni kepanasen/gosong di light, makanya ga solid.
+  // destructive selalu solid biar merahnya ga kepink.
+  // ios ga ada ripple — feedback lewat bg yang memadat ke solid pas holding,
   // destructive (udah solid) lewat fade.
 
-  const iosDeepen = Platform.OS === 'ios' && holding && variant === 'tinted';
+  const iosDeepen = Platform.OS === 'ios' && holding && (variant === 'primary' || variant === 'tinted');
 
   const bg = isFilled
     ? variant === 'destructive'
       ? tintColor
-      : iosDeepen
-        ? tintColor
-        : withOpacity(tintColor, 0.85)
+      : !isDarkColorScheme
+        ? withOpacity(tintColor, variant === 'primary' ? 0.8 : 0.9)
+        : iosDeepen
+          ? tintColor
+          : withOpacity(tintColor, 0.85)
     : variant === 'ghost'
       ? 'transparent'
       : colors.card;
 
   const rippleColor = isFilled
     ? withOpacity(COLORS.white, 0.3)
-    : variant === 'primary'
-      ? withOpacity(colors.primary, 0.3)
-      : withOpacity(colors.foreground, 0.2);
+    : withOpacity(colors.foreground, 0.2);
 
-  const fg =
-    disabled || variant === 'ghost'
-      ? disabled
-        ? colors.mutedForeground
-        : colors.foreground
-      : variant === 'default'
-        ? colors.foreground
-        : isFilled
-          ? COLORS.white
-          : colors.primary;
+  // filled (primary/tinted/destructive): teks white.
+  // outline (default) + ghost: foreground.
+  const fg = disabled
+    ? colors.mutedForeground
+    : variant === 'ghost' || variant === 'default'
+      ? colors.foreground
+      : COLORS.white;
 
-  // tinted: ring solid sewarna tint — di light lebih kuat/gelap dari
-  // fill (0.85) biar ada definisinya, no halo putih.
-  // destructive: fill-nya solid, jadi ring solid sewarna pasti nyaru.
-  // light → ring item translusen (lebih gelap dari fill),
-  // dark → ring putih translusen (lebih terang dari fill, ngikut
-  // filosofi tinted dark yang bordernya brighter dari fill-nya).
+  // colored light: ring putih 0.35 di atas fill (brighter dari fill).
+  // destructive light ikut flip juga (dulu ring item).
+  // destructive dark → ring putih 0.15. default/ghost → ring abu token.
   const borderColor =
     variant === 'destructive'
       ? isDarkColorScheme
         ? withOpacity(COLORS.white, 0.15)
-        : withOpacity(COLORS.black, 0.25)
+        : withOpacity(COLORS.white, 0.35)
       : isFilled
-        ? tintColor
+        ? isDarkColorScheme
+          ? tintColor
+          : withOpacity(COLORS.white, 0.35)
         : withOpacity(colors.border, 0.9);
 
+  const isIconOnly = size === 'icon';
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={() => {
-        setHolding(false);
+        pressOut();
         onPress?.();
       }}
-      onPressIn={() => setHolding(true)}
-      onPressOut={() => setHolding(false)}
+      onPressIn={pressIn}
+      onPressOut={pressOut}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityLabel={accessibilityLabel ?? title ?? icon}
       // border digambar sebagai overlay child (bukan di Pressable-nya),
       // jadi bounds ripple = full outer rect tanpa inset 1px.
       // foreground ripple kegambar DI ATAS overlay border itu.
@@ -116,17 +168,29 @@ export function Button({
         styles.slot,
         {
           height: BUTTON_HEIGHT,
+          width: isIconOnly ? BUTTON_HEIGHT : undefined,
           borderRadius: BUTTON_HEIGHT / 2,
           backgroundColor: bg,
           opacity: disabled ? 0.4 : pressedOpacity(holding, iosDeepen),
+          transform: [{ scale }],
         },
         style,
       ]}>
-      <View style={styles.content}>
-        {icon ? <MaterialSymbol name={icon} size={22} color={fg} /> : null}
-        <PaperText variant="titleMedium" style={{ color: fg, fontWeight: '600' }}>
-          {title}
-        </PaperText>
+      <View style={[styles.content, isIconOnly && styles.iconOnlyContent]}>
+        {isIconOnly ? (
+          icon ? (
+            <MaterialSymbol name={icon} size={26} color={fg} />
+          ) : null
+        ) : (
+          <>
+            {icon ? <MaterialSymbol name={icon} size={22} color={fg} /> : null}
+            {title ? (
+              <PaperText variant="titleMedium" style={{ color: fg, fontWeight: '600' }}>
+                {title}
+              </PaperText>
+            ) : null}
+          </>
+        )}
       </View>
       {bordered ? (
         <View
@@ -141,7 +205,50 @@ export function Button({
           ]}
         />
       ) : null}
-    </Pressable>
+    </AnimatedPressable>
+  );
+}
+
+/** frame pill isi Button yang tetap misah — ala ToolbarGroup.
+ * anak dirender apa adanya (border + radius sendiri utuh),
+ * antar anak dipisah divider. */
+export function ButtonGroup({
+  children,
+  style,
+  accessibilityLabel = 'Actions',
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+}) {
+  const { colors } = useColorScheme();
+  const items = Children.toArray(children);
+  return (
+    <View
+      accessibilityRole="toolbar"
+      accessibilityLabel={accessibilityLabel}
+      style={[
+        styles.group,
+        {
+          backgroundColor: colors.card,
+          borderColor: withOpacity(colors.border, 0.9),
+        },
+        style,
+      ]}>
+      {items.map((child, index) => (
+        <Fragment key={index}>
+          {index > 0 ? (
+            <View
+              style={[
+                styles.groupDivider,
+                { backgroundColor: withOpacity(colors.border, 0.9) },
+              ]}
+            />
+          ) : null}
+          {child}
+        </Fragment>
+      ))}
+    </View>
   );
 }
 
@@ -171,5 +278,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 20,
+  },
+  iconOnlyContent: {
+    paddingHorizontal: 0,
+  },
+  group: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    padding: 4,
+    gap: 4,
+    borderRadius: BUTTON_HEIGHT / 2 + 4,
+    borderWidth: 1,
+  },
+  groupDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 24,
+    alignSelf: 'center',
+    flexShrink: 0,
   },
 });
