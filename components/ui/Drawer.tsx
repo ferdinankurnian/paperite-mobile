@@ -5,17 +5,47 @@ import {
   type BottomSheetModalProps,
 } from '@gorhom/bottom-sheet';
 import * as React from 'react';
-import type { StyleProp, ViewStyle } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useColorScheme } from '@/lib/useColorScheme';
+import { withOpacity } from '@/theme/with-opacity';
 
 /**
  * drawer standar — reunite 3 copy bottom sheet gorhom:
  * CreateSpaceSheet (94%) + FolderNameSheet (40%) + MoveSheet (60%).
- * yang distandardize: backdrop 0.4, r28, bg card, handle null.
+ * yang distandardize: backdrop 0.4, r28, bg card, handlebar Apple-style.
  * yang bebas: snap + isi + keyboard/footer behavior.
  */
-export const DRAWER_RADIUS = 28;
+export const DRAWER_RADIUS = 36;
+
+function DrawerHandle() {
+  const { colors } = useColorScheme();
+
+  return (
+    <View pointerEvents="box-none" style={{ height: 0, overflow: 'visible' }}>
+      <View
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel="Drawer handle"
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+        }}>
+        <View
+          style={{
+            width: 36,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: withOpacity(colors.foreground, 0.32),
+          }}
+        />
+      </View>
+    </View>
+  );
+}
 
 export function DrawerBackdrop(props: BottomSheetBackdropProps) {
   return <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.4} />;
@@ -64,7 +94,7 @@ export function Drawer({
       enableDynamicSizing={false}
       enablePanDownToClose={enablePanDownToClose}
       backdropComponent={DrawerBackdrop}
-      handleComponent={null}
+      handleComponent={DrawerHandle}
       onChange={handleChange}
       backgroundStyle={[{ backgroundColor: colors.card }, backgroundStyle]}
       style={[

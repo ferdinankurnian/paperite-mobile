@@ -57,3 +57,16 @@ export function formatNoteDate(updatedAt: number): string {
     return '';
   }
 }
+
+export function formatNoteTime(updatedAt: number): string {
+  if (!updatedAt) return '';
+  try {
+    // Biarkan locale/time format dari device menentukan 12h atau 24h.
+    return new Date(updatedAt).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}

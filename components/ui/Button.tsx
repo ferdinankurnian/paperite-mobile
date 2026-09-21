@@ -1,4 +1,4 @@
-import { Children, Fragment, useState, type ReactNode } from 'react';
+import { Children, Fragment, type ReactNode } from 'react';
 import {
   Animated,
   Platform,
@@ -14,6 +14,7 @@ import { MaterialSymbol } from './MaterialSymbol';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { COLORS } from '@/theme/colors';
 import { withOpacity } from '@/theme/with-opacity';
+import { useFixedPressScale } from '@/lib/use-fixed-press-scale';
 
 /**
  * button standar — pill ala toolbar (h48, full radius).
@@ -68,24 +69,9 @@ export function Button({
   style,
 }: ButtonProps) {
   const { colors, isDarkColorScheme } = useColorScheme();
-  const [holding, setHolding] = useState(false);
-  const [scale] = useState(() => new Animated.Value(1));
-
-  const pressIn = () => {
-    if (disabled) return;
-    setHolding(true);
-    // bulet 48 kecil — butuh scale lebih gede biar kerasa.
-    // pill text udah lebar, 1.04 cukup biar ga jedag.
-    Animated.timing(scale, {
-      toValue: isIconOnly ? 1.08 : 1.04,
-      duration: 120,
-      useNativeDriver: true,
-    }).start();
-  };
-  const pressOut = () => {
-    setHolding(false);
-    Animated.timing(scale, { toValue: 1, duration: 120, useNativeDriver: true }).start();
-  };
+  const { holding, onLayout, pressIn, pressOut, transform } = useFixedPressScale(disabled, {
+    uniformFromWidth: true,
+  });
 
   const bordered = variant !== 'ghost';
   // primary = fill theme primary (tint dikunci, ga bisa custom).
@@ -107,7 +93,8 @@ export function Button({
   // ios ga ada ripple — feedback lewat bg yang memadat ke solid pas holding,
   // destructive (udah solid) lewat fade.
 
-  const iosDeepen = Platform.OS === 'ios' && holding && (variant === 'primary' || variant === 'tinted');
+  const iosDeepen =
+    Platform.OS === 'ios' && holding && (variant === 'primary' || variant === 'tinted');
 
   const bg = isFilled
     ? variant === 'destructive'
@@ -157,6 +144,7 @@ export function Button({
       }}
       onPressIn={pressIn}
       onPressOut={pressOut}
+      onLayout={onLayout}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title ?? icon}
@@ -172,7 +160,7 @@ export function Button({
           borderRadius: BUTTON_HEIGHT / 2,
           backgroundColor: bg,
           opacity: disabled ? 0.4 : pressedOpacity(holding, iosDeepen),
-          transform: [{ scale }],
+          transform,
         },
         style,
       ]}>
@@ -239,10 +227,7 @@ export function ButtonGroup({
         <Fragment key={index}>
           {index > 0 ? (
             <View
-              style={[
-                styles.groupDivider,
-                { backgroundColor: withOpacity(colors.border, 0.9) },
-              ]}
+              style={[styles.groupDivider, { backgroundColor: withOpacity(colors.border, 0.9) }]}
             />
           ) : null}
           {child}

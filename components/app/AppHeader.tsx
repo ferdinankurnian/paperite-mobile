@@ -8,7 +8,7 @@ import type { MobileEditor } from '@/lib/editor/types';
 
 import { ToolbarGroup, ToolbarItem } from '@/components/ui/Toolbar';
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
-import { SaveStatusText, type SaveStatus } from '@/components/app/SaveStatusText';
+import { saveStatusLabel, type SaveStatus } from '@/components/app/SaveStatusText';
 import { SpaceIcon } from '@/lib/space-icons';
 import { TRASH_ID } from '@/lib/storage/files';
 import type { ToolbarMenuEntry } from '@/components/ui/ToolbarMenu';
@@ -20,6 +20,7 @@ import { useSelection } from '@/lib/selection';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { withOpacity } from '@/theme/with-opacity';
 import type { Note } from '@/lib/paperite-data';
+import { formatNoteTime } from '@/lib/paperite-data';
 
 const HEADER_H = 56;
 const HEADER_GRADIENT_EXTRA_H = 16;
@@ -27,6 +28,8 @@ const HEADER_GRADIENT_EXTRA_H = 16;
 type AppHeaderProps = {
   variant?: 'space' | 'editor' | 'settings' | 'detail';
   onLeftPress?: () => void;
+  /** optional action for the space bubble; no default navigation is attached. */
+  onSpacePress?: () => void;
   onUndoPress?: () => void;
   onRedoPress?: () => void;
   /** detail variant: judul pill */
@@ -45,6 +48,7 @@ type AppHeaderProps = {
 export function AppHeader({
   variant = 'space',
   onLeftPress,
+  onSpacePress,
   onUndoPress,
   onRedoPress,
   title,
@@ -208,7 +212,7 @@ export function AppHeader({
           )}
 
           {isEditor ? (
-            <SaveStatusText status={saveStatus} />
+            <EditorStatus status={saveStatus} updatedAt={note?.updatedAt ?? 0} />
           ) : isSpaceSelecting ? (
             <View
               style={{
@@ -292,20 +296,10 @@ export function AppHeader({
               </Text>
             </View>
           ) : (
-            <View
-              style={{
-                ...floatingSurface,
-                height: 48,
-                maxWidth: '100%',
-                paddingHorizontal: 16,
-                borderRadius: 24,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                flexShrink: 1,
-                minWidth: 0,
-              }}>
+            <ToolbarItem
+              accessibilityLabel={activeSpaceName || 'Current space'}
+              onPress={onSpacePress}
+              style={{ maxWidth: '100%', flexShrink: 1, minWidth: 0, paddingHorizontal: 16 }}>
               <SpaceIcon name={activeSpace?.icon ?? 'folder'} size={20} color={iconColor} />
               <Text
                 style={{
@@ -318,7 +312,7 @@ export function AppHeader({
                 numberOfLines={1}>
                 {activeSpaceName}
               </Text>
-            </View>
+            </ToolbarItem>
           )}
         </View>
 
@@ -397,6 +391,38 @@ export function AppHeader({
           )}
         </View>
       </View>
+    </View>
+  );
+}
+
+function EditorStatus({ status, updatedAt }: { status: SaveStatus; updatedAt: number }) {
+  const { colors } = useColorScheme();
+  const label = saveStatusLabel(status);
+  const edited = formatNoteTime(updatedAt);
+  if (!label && !edited) return null;
+
+  return (
+    <View
+      style={{ flex: 1, minWidth: 0, paddingLeft: 4 }}
+      accessibilityLabel={edited ? `${label}, Edited ${edited}` : label}>
+      {label ? (
+        <Text
+          numberOfLines={1}
+          style={{
+            color: status === 'error' ? colors.destructive : colors.foreground,
+            fontSize: 17,
+            fontWeight: '600',
+          }}>
+          {label}
+        </Text>
+      ) : null}
+      {edited ? (
+        <Text
+          numberOfLines={1}
+          style={{ color: colors.mutedForeground, fontSize: 12, fontWeight: '500' }}>
+          Edited {edited}
+        </Text>
+      ) : null}
     </View>
   );
 }

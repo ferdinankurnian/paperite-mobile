@@ -135,6 +135,7 @@ export default function NoteEditorScreen() {
         createdIdRef.current = made.id;
         noteIdRef.current = made.id;
         setCreatedId(made.id);
+        setNote(made);
         setCachedNote(made);
       }
       creatingRef.current = null;
@@ -161,6 +162,7 @@ export default function NoteEditorScreen() {
             .then((saved) => {
               if (saved) {
                 pendingContent.current = null;
+                setNote(saved);
                 setCachedNote(saved);
                 setSaveStatus('saved');
               } else {
@@ -288,7 +290,7 @@ export default function NoteEditorScreen() {
         title: title || 'Untitled',
         preview: '',
         body: '',
-        updatedAt: 0,
+        updatedAt: note?.updatedAt ?? 0,
         pinned: false,
       };
     }

@@ -15,9 +15,16 @@ export type ToolbarTitleProps = {
   /** opsional — ikon leading mati (space icon dsb). */
   icon?: ReactNode;
   accessibilityLabel?: string;
+  textAlign?: 'left' | 'center';
 };
 
-export function ToolbarTitle({ title, subtitle, icon, accessibilityLabel }: ToolbarTitleProps) {
+export function ToolbarTitle({
+  title,
+  subtitle,
+  icon,
+  accessibilityLabel,
+  textAlign = 'left',
+}: ToolbarTitleProps) {
   const { colors } = useColorScheme();
   return (
     <View
@@ -32,6 +39,7 @@ export function ToolbarTitle({ title, subtitle, icon, accessibilityLabel }: Tool
             color: colors.foreground,
             fontSize: 17,
             fontWeight: '600',
+            textAlign,
           }}>
           {title}
         </Text>

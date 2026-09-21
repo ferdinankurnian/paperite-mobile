@@ -3,11 +3,13 @@ import { Pressable, Text, View } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 
+import { ActionModal } from '@/components/ui/ActionModal';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Drawer } from '@/components/ui/Drawer';
+import { Input } from '@/components/ui/Input';
 import { MaterialSymbol } from '@/components/ui/MaterialSymbol';
-import { ToolbarGroup, ToolbarItem } from '@/components/ui/Toolbar';
+import { Toolbar, ToolbarGroup, ToolbarItem } from '@/components/ui/Toolbar';
 import { ToolbarTitle } from '@/components/ui/ToolbarTitle';
 import { SpaceIcon } from '@/lib/space-icons';
 import { UI_AUDIT } from '@/lib/ui-audit';
@@ -21,6 +23,11 @@ const UI_KIT_SECTIONS = [
     desc: 'pill h48 fit content + center. size="icon" buat bulet 48',
   },
   {
+    id: 'input',
+    title: 'Input',
+    desc: 'textbox 48 — default, search, leading icon, trailing icon',
+  },
+  {
     id: 'toolbar',
     title: 'Toolbar',
     desc: 'ToolbarItem solo + ToolbarGroup satu permukaan. tanpa separator',
@@ -29,6 +36,11 @@ const UI_KIT_SECTIONS = [
   { id: 'row', title: 'Row', desc: 'SettingsRow, list row — kosong, isi pas audit' },
   { id: 'text', title: 'Text', desc: 'typography scale — kosong, isi pas audit' },
   { id: 'sheet', title: 'Drawer', desc: 'drawer ala create space — snap prop, backdrop 0.4, r28' },
+  {
+    id: 'action-modal',
+    title: 'Action modal',
+    desc: 'menu di bawah layar — action pakai Button standar, bukan popover tengah',
+  },
   { id: 'icon', title: 'Icon', desc: 'material vs lucide vs space icon — kosong, isi pas audit' },
 ] as const;
 
@@ -106,11 +118,41 @@ const CODE_SNIPPETS: Record<string, string> = {
   accessibilityLabel="Delete"
   onPress={remove}
 />`,
+  input: `// Input — ui/Input.tsx
+// default — textbox biasa
+<Input placeholder="Note title" />
+
+// search — icon kiri + clear action otomatis saat ada isi
+<Input
+  variant="search"
+  value={query}
+  onChangeText={setQuery}
+  placeholder="Search notes"
+/>
+
+// leading icon — icon dekoratif di kiri
+<Input variant="leading-icon" icon="mail" placeholder="Email" />
+
+// trailing icon — bisa dipakai sebagai action
+<Input
+  variant="trailing-icon"
+  icon="visibility"
+  iconAccessibilityLabel="Show password"
+  onIconPress={showPassword}
+  placeholder="Password"
+/>`,
   toolbar: `// Toolbar — ui/Toolbar.tsx
 // solo buat 1 action (back, save)
 <ToolbarItem icon="arrow_back_ios_new" accessibilityLabel="Back" onPress={back} />
+// primary action — fill primary theme, icon foreground putih
+<ToolbarItem
+  icon="arrow_upward"
+  variant="primary"
+  accessibilityLabel="Send"
+  onPress={send}
+/>
 
-// bleed: SATU pressable satu pill — ripple + scale satu permukaan,
+// group: SATU pressable satu pill — ripple + scale satu permukaan,
 // action di-route dari posisi tap. tanpa separator, tanpa trigger nested.
 <ToolbarGroup
   accessibilityLabel="Edit actions"
@@ -152,7 +194,7 @@ const CODE_SNIPPETS: Record<string, string> = {
         accessibilityLabel="Open Inbox"
         onPress={() => setLast('Inbox')}
         style={{
-          paddingHorizontal: 12,
+          paddingHorizontal: 16,
           flexDirection: 'row',
           gap: 8,
         }}>
@@ -180,7 +222,7 @@ const CODE_SNIPPETS: Record<string, string> = {
 
 // note content: copy AppHeader variant="editor" — back ios + saved +
 // sub timestamp + kanan undo/redo grup + titik tiga BOLA SENDIRI.
-<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+<View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
   <ToolbarItem icon="arrow_back_ios_new" accessibilityLabel="Back" onPress={back} />
   <ToolbarTitle title="Saved" subtitle="Edited 17:02" />
   <ToolbarGroup
@@ -224,14 +266,16 @@ const CODE_SNIPPETS: Record<string, string> = {
   text: '// Text — belum distandardize\n// pencet audit buat lihat temuan',
   sheet: `// Drawer — ui/Drawer.tsx
 // reunite CreateSpaceSheet (94%) + FolderNameSheet (40%) + MoveSheet (60%).
-// backdrop 0.4 + r28 + bg card dikunci, snap + isi bebas.
+// backdrop 0.4 + r28 + bg card + handlebar dikunci, snap + isi bebas.
+// toolbar standar — ui/Toolbar.tsx: close kiri + title center + confirm kanan.
 const tallRef = useRef<BottomSheetModal>(null);
 const halfRef = useRef<BottomSheetModal>(null);
 
 // 1: tall 95% — ala create space
 <Button title="Open tall drawer" onPress={() => tallRef.current?.present()} />
 <Drawer sheetRef={tallRef} snapPoints={['95%']}>
-  <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+  <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+    <Toolbar title="Tall drawer" onClose={close} onConfirm={confirm} />
     <PaperText variant="titleMedium">Hello</PaperText>
   </View>
 </Drawer>
@@ -239,7 +283,8 @@ const halfRef = useRef<BottomSheetModal>(null);
 // 2: half 50% — tarik ke atas buat full 95%
 <Button title="Open half drawer" onPress={() => halfRef.current?.present()} />
 <Drawer sheetRef={halfRef} snapPoints={['50%', '95%']}>
-  <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+  <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+    <Toolbar title="Half drawer" onClose={close} onConfirm={confirm} />
     ...
   </View>
 </Drawer>
@@ -248,6 +293,21 @@ const halfRef = useRef<BottomSheetModal>(null);
 // lagi kescroll terus sheet ditarik ke bawah, list balik ke atas dulu
 // baru sheet dismiss — itu handoff standar, bukan bug.`,
   icon: '// Icon — belum distandardize\n// pencet audit buat lihat temuan',
+  'action-modal': `// ActionModal — ui/ActionModal.tsx
+const [actionOpen, setActionOpen] = useState(false);
+
+<Button title="Open action modal" onPress={() => setActionOpen(true)} />
+<ActionModal
+  visible={actionOpen}
+  onClose={() => setActionOpen(false)}
+  title="Note actions"
+  description="Choose what you want to do with this note."
+  actions={[
+    { title: 'Rename', onPress: rename },
+    { title: 'Duplicate', onPress: duplicate },
+    { title: 'Delete', variant: 'primary', onPress: remove },
+  ]}
+/>`,
 };
 
 function ButtonShowcase() {
@@ -286,6 +346,42 @@ function ButtonShowcase() {
           onPress={() => {}}
         />
       </View>
+    </View>
+  );
+}
+
+function InputShowcase() {
+  const [query, setQuery] = useState('');
+  const [email, setEmail] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Input placeholder="Note title" />
+      <Input
+        variant="search"
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search notes"
+        accessibilityLabel="Search notes"
+      />
+      <Input
+        variant="leading-icon"
+        icon="mail"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="Email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <Input
+        variant="trailing-icon"
+        icon={passwordVisible ? 'visibility_off' : 'visibility'}
+        iconAccessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+        onIconPress={() => setPasswordVisible((visible) => !visible)}
+        placeholder="Password"
+        secureTextEntry={!passwordVisible}
+      />
     </View>
   );
 }
@@ -367,7 +463,10 @@ function CardShowcase() {
             numberOfLines={1}>
             Ghost — Untitled
           </PaperText>
-          <PaperText variant="bodyMedium" style={{ color: colors.mutedForeground }} numberOfLines={2}>
+          <PaperText
+            variant="bodyMedium"
+            style={{ color: colors.mutedForeground }}
+            numberOfLines={2}>
             transparent tanpa border, konten yang ngomong
           </PaperText>
         </Card>
@@ -401,7 +500,10 @@ function CardShowcase() {
             numberOfLines={1}>
             Selected note
           </PaperText>
-          <PaperText variant="bodyMedium" style={{ color: colors.mutedForeground }} numberOfLines={1}>
+          <PaperText
+            variant="bodyMedium"
+            style={{ color: colors.mutedForeground }}
+            numberOfLines={1}>
             ghost + tint primary 0.12 pas select mode
           </PaperText>
         </Card>
@@ -418,6 +520,14 @@ function ToolbarShowcase() {
       {/* solo */}
       <View style={{ alignItems: 'center' }}>
         <ToolbarItem icon="arrow_back_ios_new" accessibilityLabel="Back" onPress={() => {}} />
+      </View>
+      <View style={{ alignItems: 'center' }}>
+        <ToolbarItem
+          icon="arrow_upward"
+          variant="primary"
+          accessibilityLabel="Primary action"
+          onPress={() => setLast('Primary action')}
+        />
       </View>
       {/* bleed: satu permukaan, ripple + scale pill */}
       <View style={{ alignItems: 'center', gap: 12 }}>
@@ -439,16 +549,34 @@ function ToolbarShowcase() {
             icon: 'more_vert',
             accessibilityLabel: 'More options',
             entries: [
-              { title: 'Rename', icon: 'edit', accessibilityLabel: 'Rename', onPress: () => setLast('Rename') },
-              { title: 'Delete', icon: 'delete', accessibilityLabel: 'Delete', onPress: () => setLast('Delete') },
+              {
+                title: 'Rename',
+                icon: 'edit',
+                accessibilityLabel: 'Rename',
+                onPress: () => setLast('Rename'),
+              },
+              {
+                title: 'Delete',
+                icon: 'delete',
+                accessibilityLabel: 'Delete',
+                onPress: () => setLast('Delete'),
+              },
               {
                 type: 'submenu',
                 title: 'Sort by',
                 icon: 'sort',
                 accessibilityLabel: 'Sort by',
                 children: [
-                  { title: 'Name', accessibilityLabel: 'Sort by name', onPress: () => setLast('Sort: Name') },
-                  { title: 'Date', accessibilityLabel: 'Sort by date', onPress: () => setLast('Sort: Date') },
+                  {
+                    title: 'Name',
+                    accessibilityLabel: 'Sort by name',
+                    onPress: () => setLast('Sort: Name'),
+                  },
+                  {
+                    title: 'Date',
+                    accessibilityLabel: 'Sort by date',
+                    onPress: () => setLast('Sort: Date'),
+                  },
                 ],
               },
             ],
@@ -473,8 +601,18 @@ function ToolbarShowcase() {
             icon: 'more_vert',
             accessibilityLabel: 'More options',
             entries: [
-              { title: 'Rename', icon: 'edit', accessibilityLabel: 'Rename', onPress: () => setLast('Rename') },
-              { title: 'Delete', icon: 'delete', accessibilityLabel: 'Delete', onPress: () => setLast('Delete') },
+              {
+                title: 'Rename',
+                icon: 'edit',
+                accessibilityLabel: 'Rename',
+                onPress: () => setLast('Rename'),
+              },
+              {
+                title: 'Delete',
+                icon: 'delete',
+                accessibilityLabel: 'Delete',
+                onPress: () => setLast('Delete'),
+              },
             ],
           }}
           onZonePress={setLast}
@@ -492,7 +630,7 @@ function ToolbarShowcase() {
             accessibilityLabel="Open Inbox"
             onPress={() => setLast('Inbox')}
             style={{
-              paddingHorizontal: 12,
+              paddingHorizontal: 16,
               flexDirection: 'row',
               gap: 8,
             }}>
@@ -511,15 +649,25 @@ function ToolbarShowcase() {
             icon: 'more_vert',
             accessibilityLabel: 'List actions',
             entries: [
-              { title: 'Select', icon: 'check_box', accessibilityLabel: 'Select', onPress: () => setLast('Select') },
-              { title: 'Delete', icon: 'delete', accessibilityLabel: 'Delete', onPress: () => setLast('Delete') },
+              {
+                title: 'Select',
+                icon: 'check_box',
+                accessibilityLabel: 'Select',
+                onPress: () => setLast('Select'),
+              },
+              {
+                title: 'Delete',
+                icon: 'delete',
+                accessibilityLabel: 'Delete',
+                onPress: () => setLast('Delete'),
+              },
             ],
           }}
           onZonePress={setLast}
         />
       </View>
       {/* note content: back ios + saved + sub timestamp + kanan undo/redo + titik tiga bola sendiri */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
         <ToolbarItem icon="arrow_back_ios_new" accessibilityLabel="Back" onPress={() => {}} />
         <ToolbarTitle title="Saved" subtitle="Edited 17:02" />
         <ToolbarGroup
@@ -530,7 +678,11 @@ function ToolbarShowcase() {
           ]}
           onZonePress={setLast}
         />
-        <ToolbarItem icon="more_vert" accessibilityLabel="More options" onPress={() => setLast('More options')} />
+        <ToolbarItem
+          icon="more_vert"
+          accessibilityLabel="More options"
+          onPress={() => setLast('More options')}
+        />
       </View>
     </View>
   );
@@ -545,10 +697,19 @@ function DrawerShowcase() {
   return (
     <View style={{ gap: 8 }}>
       <Button title="Open tall drawer" onPress={() => tallRef.current?.present()} />
-      <Button title="Open half drawer" variant="primary" onPress={() => halfRef.current?.present()} />
+      <Button
+        title="Open half drawer"
+        variant="primary"
+        onPress={() => halfRef.current?.present()}
+      />
       {/* 1: tall 95% — ala create space */}
       <Drawer sheetRef={tallRef} snapPoints={tallSnap}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 16 }}>
+          <Toolbar
+            title="Tall drawer"
+            onClose={() => tallRef.current?.dismiss()}
+            onConfirm={() => tallRef.current?.dismiss()}
+          />
           <PaperText
             variant="titleMedium"
             style={{ color: colors.foreground, fontWeight: '700', textAlign: 'center' }}>
@@ -564,14 +725,18 @@ function DrawerShowcase() {
               isi bebas — form / list / preview space di sini
             </PaperText>
           </Card>
-          <Button title="Close" onPress={() => tallRef.current?.dismiss()} />
         </View>
       </Drawer>
       {/* 2: half 50% — tarik ke atas buat full 95%. konten sengaja dibikin
           muat tanpa inner scroll biar ga ada rebutan gesture scroll-vs-drag
           (itu yang bikin ghost: list mental ke atas dulu baru sheet dismiss) */}
       <Drawer sheetRef={halfRef} snapPoints={halfSnap}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, gap: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 16 }}>
+          <Toolbar
+            title="Half drawer"
+            onClose={() => halfRef.current?.dismiss()}
+            onConfirm={() => halfRef.current?.dismiss()}
+          />
           <PaperText
             variant="titleMedium"
             style={{ color: colors.foreground, fontWeight: '700', textAlign: 'center' }}>
@@ -589,9 +754,51 @@ function DrawerShowcase() {
               </PaperText>
             </Card>
           ))}
-          <Button title="Close" onPress={() => halfRef.current?.dismiss()} />
         </View>
       </Drawer>
+    </View>
+  );
+}
+
+function ActionModalShowcase() {
+  const { colors } = useColorScheme();
+  const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [last, setLast] = useState<string | null>(null);
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Button title="Open action modal" variant="primary" onPress={() => setOpen(true)} />
+      <Button
+        title="Open confirmation modal"
+        variant="default"
+        onPress={() => setConfirmOpen(true)}
+      />
+      <PaperText variant="bodySmall" style={{ color: colors.mutedForeground, textAlign: 'center' }}>
+        {last ? `last action: ${last}` : 'menu muncul dari bawah layar'}
+      </PaperText>
+      <ActionModal
+        visible={open}
+        onClose={() => setOpen(false)}
+        title="Note actions"
+        description="Choose what you want to do with this note."
+        actions={[
+          { title: 'Rename', onPress: () => setLast('Rename') },
+          { title: 'Duplicate', onPress: () => setLast('Duplicate') },
+          { title: 'Delete', variant: 'primary', onPress: () => setLast('Delete') },
+        ]}
+      />
+      <ActionModal
+        visible={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Delete note?"
+        description="This note will be moved to Trash."
+        actionLayout="horizontal"
+        actions={[
+          { title: 'Cancel' },
+          { title: 'Delete', variant: 'destructive', onPress: () => setLast('Delete') },
+        ]}
+      />
     </View>
   );
 }
@@ -706,12 +913,16 @@ function UiKitSection({
           }}>
           {id === 'button' ? (
             <ButtonShowcase />
+          ) : id === 'input' ? (
+            <InputShowcase />
           ) : id === 'card' ? (
             <CardShowcase />
           ) : id === 'toolbar' ? (
             <ToolbarShowcase />
           ) : id === 'sheet' ? (
             <DrawerShowcase />
+          ) : id === 'action-modal' ? (
+            <ActionModalShowcase />
           ) : (
             <PaperText
               variant="bodySmall"
@@ -729,13 +940,7 @@ export function ComponentsBody({ showAudit }: { showAudit: boolean }) {
   return (
     <>
       {UI_KIT_SECTIONS.map((s) => (
-        <UiKitSection
-          key={s.id}
-          id={s.id}
-          title={s.title}
-          desc={s.desc}
-          showAudit={showAudit}
-        />
+        <UiKitSection key={s.id} id={s.id} title={s.title} desc={s.desc} showAudit={showAudit} />
       ))}
     </>
   );

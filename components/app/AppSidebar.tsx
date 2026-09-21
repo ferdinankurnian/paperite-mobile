@@ -39,15 +39,16 @@ function SpaceRow({
 
   return (
     <View
-      className="mx-2 mb-0.5 overflow-hidden rounded-xl"
+      className="mx-2 mb-0.5 overflow-hidden rounded-full"
       style={{
         backgroundColor: active ? activeBackground : 'transparent',
         borderWidth: 1,
         borderColor: active ? withOpacity(colors.foreground, 0.1) : 'transparent',
+        borderRadius: 999,
       }}>
       <Pressable
         onPress={onPress}
-        className="flex-row items-center gap-3 px-3 py-2.5"
+        className="flex-row items-center gap-3 rounded-full px-3 py-2.5"
         android_ripple={{
           color: withOpacity(colors.foreground, 0.14),
           borderless: false,
@@ -141,10 +142,10 @@ export function AppSidebar({ navigation }: Props) {
           />
         ))}
 
-        <View className="mx-2 mt-1 overflow-hidden rounded-xl">
+        <View className="mx-2 mt-1 overflow-hidden rounded-full">
           <Pressable
             onPress={() => sheetRef.current?.present()}
-            className="flex-row items-center gap-3 px-3 py-2.5"
+            className="flex-row items-center gap-3 rounded-full px-3 py-2.5"
             android_ripple={{
               color: withOpacity(colors.foreground, 0.14),
               borderless: false,
@@ -171,18 +172,19 @@ export function AppSidebar({ navigation }: Props) {
         ))}
 
         <View
-          className="mx-2 mb-4 overflow-hidden rounded-xl"
+          className="mx-2 mb-4 overflow-hidden rounded-full"
           style={{
             backgroundColor: onSettings ? activeBg : 'transparent',
             borderWidth: 1,
             borderColor: onSettings ? withOpacity(colors.foreground, 0.1) : 'transparent',
+            borderRadius: 999,
           }}>
           <Pressable
             onPress={() => {
               navigation.closeDrawer();
               router.push('/settings');
             }}
-            className="flex-row items-center gap-3 px-3 py-2.5"
+            className="flex-row items-center gap-3 rounded-full px-3 py-2.5"
             android_ripple={{
               color: withOpacity(colors.foreground, 0.14),
               borderless: false,
