@@ -4,7 +4,10 @@
     "slug": "paperite-mobile",
     "version": "1.0.0",
     "scheme": "paperite-mobile",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -35,7 +38,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.avaidstudio.paperite"
@@ -52,6 +57,12 @@
       "eas": {
         "projectId": "c79fa9eb-f16c-4208-af31-89084bd166a5"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c79fa9eb-f16c-4208-af31-89084bd166a5"
     }
   }
 }
